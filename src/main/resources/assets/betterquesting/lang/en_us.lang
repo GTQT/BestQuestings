@@ -336,3 +336,13 @@ betterquesting.notification.tooltip=Toggle Quest Notifications
 
 betterquesting.context.add_task=Add Task
 betterquesting.context.add_reward=Add Reward
+
+# Task Edit Screen
+gui.edit_task_retrieval.autoConsume=Auto Consume
+gui.edit_task_retrieval.consume=Consume
+gui.edit_task_retrieval.entryLogic=Entry Logic
+gui.edit_task_retrieval.groupDetect=Group Detect
+gui.edit_task_retrieval.ignoreNBT=Ignore NBT
+gui.edit_task_retrieval.partialMatch=Partial Match
+gui.edit_task_retrieval.requiredItems=Required Items
+gui.edit_task_retrieval.list=List...

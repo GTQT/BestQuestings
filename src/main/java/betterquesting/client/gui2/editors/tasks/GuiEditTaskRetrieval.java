@@ -26,6 +26,7 @@ import betterquesting.client.gui2.editors.nbt.GuiNbtEditor;
 import betterquesting.core.ModReference;
 import betterquesting.questing.tasks.TaskRetrieval;
 import net.minecraft.client.gui.GuiScreen;
+import net.minecraft.client.resources.I18n;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.nbt.NBTTagList;
 import net.minecraft.util.ResourceLocation;
@@ -85,13 +86,13 @@ public class GuiEditTaskRetrieval extends GuiScreenCanvas implements IVolatileSc
     }
 
     private void initItems(CanvasScrollingNameValue cvList) {
-        addBoolean("autoConsume", cvList);
-        addBoolean("consume", cvList);
-        cvList.addPanel("entryLogic", rect -> new PanelButtonEnum<>(rect, -1, EnumUtil.getEnum(current.getString("entryLogic"), EnumLogic.AND)).setCallback(value -> current.setString("entryLogic", value.name())));
-        addBoolean("groupDetect", cvList);
-        addBoolean("ignoreNBT", cvList);
-        addBoolean("partialMatch", cvList);
-        cvList.addPanel("requiredItems", rect -> new PanelButton(rect, -1, "List...").setClickAction(b -> {
+        addBoolean(I18n.format("gui.edit_task_retrieval.autoConsume"), cvList);
+        addBoolean(I18n.format("gui.edit_task_retrieval.consume"), cvList);
+        cvList.addPanel(I18n.format("gui.edit_task_retrieval.entryLogic"), rect -> new PanelButtonEnum<>(rect, -1, EnumUtil.getEnum(current.getString("entryLogic"), EnumLogic.AND)).setCallback(value -> current.setString("entryLogic", value.name())));
+        addBoolean(I18n.format("gui.edit_task_retrieval.groupDetect"), cvList);
+        addBoolean(I18n.format("gui.edit_task_retrieval.ignoreNBT"), cvList);
+        addBoolean(I18n.format("gui.edit_task_retrieval.partialMatch"), cvList);
+        cvList.addPanel(I18n.format("gui.edit_task_retrieval.requiredItems"), rect -> new PanelButton(rect, -1, I18n.format("gui.edit_task_retrieval.list")).setClickAction(b -> {
             mc.displayGuiScreen(new GuiNbtEditor(mc.currentScreen, (NBTTagList) current.getTag("requiredItems"), null));
         }));
     }

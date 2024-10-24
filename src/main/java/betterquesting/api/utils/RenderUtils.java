@@ -220,7 +220,7 @@ public class RenderUtils {
         List<String> list = splitString(string, width, renderer);
         List<String> noFormat = splitStringWithoutFormat(string, width, renderer); // Needed for accurate highlight index positions
 
-        if (list.size() != noFormat.size() || (list.isEmpty() && noFormat.isEmpty())) {
+        if (list.size() != noFormat.size()) {
             //BetterQuesting.logger.error("Line count mismatch (" + list.size() + " != " + noFormat.size() + ") while drawing formatted text!");
             return;
         }
@@ -477,26 +477,20 @@ public class RenderUtils {
         String temp = str;
 
         while (true) {
-            int stringWidth = sizeStringToWidth(lastFormat + temp, wrapWidth, font); // Cut to size WITH formatting
-            stringWidth -= lastFormat.length(); // Remove formatting characters from count
+            int i = sizeStringToWidth(lastFormat + temp, wrapWidth, font); // Cut to size WITH formatting
+            i -= lastFormat.length(); // Remove formatting characters from count
 
-            if (temp.length() <= stringWidth) {
+            if (temp.length() <= i) {
                 list.add(temp);
                 break;
-            }
-            // Break in case of very squished cases, preventing an infinite loop
-            // StringWidth is the index just before the wrap width would have been exceeded (or a newline), so we want to
-            // include up to it in the length check
-            else if (font.getStringWidth(temp.substring(0, stringWidth + 1)) > wrapWidth) {
-                break;
             } else {
-                String partialString = temp.substring(0, stringWidth);
-                char finalChar = temp.charAt(stringWidth);
-                boolean flag = finalChar == ' ' || finalChar == '\n';
-                lastFormat = FontRenderer.getFormatFromString(lastFormat + partialString);
-                temp = temp.substring(stringWidth + (flag ? 1 : 0));
+                String s = temp.substring(0, i);
+                char c0 = temp.charAt(i);
+                boolean flag = c0 == ' ' || c0 == '\n';
+                lastFormat = FontRenderer.getFormatFromString(lastFormat + s);
+                temp = temp.substring(i + (flag ? 1 : 0));
                 // NOTE: The index actually stops just before the space/nl so we don't need to remove it from THIS line. This is why the previous line moves forward by one for the NEXT line
-                list.add(partialString + (flag ? "\n" : "")); // Although we need to remove the spaces between each line we have to replace them with invisible new line characters to preserve the index count
+                list.add(s + (flag ? "\n" : "")); // Although we need to remove the spaces between each line we have to replace them with invisible new line characters to preserve the index count
 
                 if (temp.length() <= 0 && !flag) {
                     break;
@@ -507,45 +501,25 @@ public class RenderUtils {
         return list;
     }
 
-    /**
-     * Splits a String into multiple Strings depending on a maximum width
-     * @param str The original String
-     * @param wrapWidth The maximum width
-     * @param font The FontRenderer
-     * @return A List of Strings split based on the maximum width
-     */
     public static List<String> splitString(String str, int wrapWidth, FontRenderer font) {
         List<String> list = new ArrayList<>();
 
         String temp = str;
 
         while (true) {
+            int i = sizeStringToWidth(temp, wrapWidth, font); // Cut to size WITH formatting
 
-            // Splits the String to the maximum width, taking into account formatting
-            int stringWidth = sizeStringToWidth(temp, wrapWidth, font); // Cut to size WITH formatting
-
-            // If the String does not need to be cut, return the original String
-            if (temp.length() <= stringWidth) {
+            if (temp.length() <= i) {
                 list.add(temp);
                 break;
-            }
-            // Break in case of very squished cases, preventing an infinite loop
-            // StringWidth is the index just before the wrap width would have been exceeded (or a newline), so we want to
-            // include up to it in the length check
-            else if (font.getStringWidth(temp.substring(0, stringWidth + 1)) > wrapWidth) {
-                break;
-            }
-            else {
-                String partialString = temp.substring(0, stringWidth);
-                char finalChar = temp.charAt(stringWidth);
-                // Detects if the final Char is a space or a line break
-                boolean flag = finalChar == ' ' || finalChar == '\n';
-                // Sets the temp String to any formatting characters, designated by \u00a7 or char 167, and adds on the space/line break if required
-                // This can be an empty string, if there are no formattings applied and no space or line break
-                temp = FontRenderer.getFormatFromString(partialString) + temp.substring(stringWidth + (flag ? 1 : 0));
-                list.add(partialString);
+            } else {
+                String s = temp.substring(0, i);
+                char c0 = temp.charAt(i);
+                boolean flag = c0 == ' ' || c0 == '\n';
+                temp = FontRenderer.getFormatFromString(s) + temp.substring(i + (flag ? 1 : 0));
+                list.add(s);
 
-                if (temp.length() <= 0) {
+                if (temp.length() <= 0 && !flag) {
                     break;
                 }
             }
@@ -602,67 +576,56 @@ public class RenderUtils {
     }
 
     private static int sizeStringToWidth(String str, int wrapWidth, FontRenderer font) {
-        int stringLength = str.length();
-        int charWidth = 0;
-        int index = 0;
-        int breakIndex = -1;
+        int i = str.length();
+        int j = 0;
+        int k = 0;
+        int l = -1;
 
-        for (boolean flag = false; index < stringLength; ++index) {
-            char selectedCharacter = str.charAt(index);
+        for (boolean flag = false; k < i; ++k) {
+            char c0 = str.charAt(k);
 
-            switch (selectedCharacter) {
+            switch (c0) {
                 case '\n':
-                    --index;
+                    --k;
                     break;
                 case ' ':
-                    breakIndex = index;
+                    l = k;
                 default:
-                    charWidth += font.getCharWidth(selectedCharacter);
+                    j += font.getCharWidth(c0);
 
-                    // If we are dealing with a specified formatting character, increment again
                     if (flag) {
-                        ++charWidth;
+                        ++j;
                     }
 
                     break;
-                // Minecraft formatting symbol
                 case '\u00a7':
 
-                    // Check if there can be a formatting character after the formatting symbol
-                    if (index < stringLength - 1) {
-                        ++index;
-                        char formattingCharacter = str.charAt(index);
+                    if (k < i - 1) {
+                        ++k;
+                        char c1 = str.charAt(k);
 
-                        // Ignore Bolded characters (why?)
-                        if (formattingCharacter != 'l' && formattingCharacter != 'L') {
-                            // If the formatting character is reset or a color code, set the flag to false
-                            if (formattingCharacter == 'r' || formattingCharacter == 'R' || isFormatColor(formattingCharacter)) {
+                        if (c1 != 'l' && c1 != 'L') {
+                            if (c1 == 'r' || c1 == 'R' || isFormatColor(c1)) {
                                 flag = false;
                             }
                         } else {
-                            // Strikethrough, italic, underline, obfuscated
                             flag = true;
                         }
                     }
             }
 
-            // If the selected character was a new line, undo the index decrement and set the break index
-            // Doing this outside the switch ensures breaking the string on every new line
-            if (selectedCharacter == '\n') {
-                ++index;
-                breakIndex = index;
+            if (c0 == '\n') {
+                ++k;
+                l = k;
                 break;
             }
 
-            // If our total string width exceeds the maximum allowed size, don't add anything else
-            if (charWidth > wrapWidth) {
+            if (j > wrapWidth) {
                 break;
             }
         }
 
-        // If we have not made it to the end of the string, and there are spaces or newlines that are not on the end of the string,
-        // return the index of the last index of a space or newline. Else return the index where we have exceeded the allowed width.
-        return index != stringLength && breakIndex != -1 && breakIndex < index ? breakIndex : index;
+        return k != i && l != -1 && l < k ? l : k;
     }
 
     private static boolean isFormatColor(char colorChar) {
@@ -803,17 +766,17 @@ public class RenderUtils {
         } else if (tooltipY + tooltipHeight + 4 > screenHeight) {
             tooltipY = screenHeight - tooltipHeight - 4;
         }
-		
+
 		/*int backgroundColor = 0xF0100010;
 		int borderColorStart = 0x505000FF;
 		int borderColorEnd = (borderColorStart & 0xFEFEFE) >> 1 | borderColorStart & 0xFF000000;
-		
+
 		RenderTooltipEvent.Color colorEvent = new RenderTooltipEvent.Color(stack, textLines, tooltipX, tooltipY, font, backgroundColor, borderColorStart, borderColorEnd);
 		MinecraftForge.EVENT_BUS.post(colorEvent);
 		backgroundColor = colorEvent.getBackground();
 		borderColorStart = colorEvent.getBorderStart();
 		borderColorEnd = colorEvent.getBorderEnd();
-		
+
 		GuiUtils.drawGradientRect(0, tooltipX - 3, tooltipY - 4, tooltipX + tooltipTextWidth + 3, tooltipY - 3, backgroundColor, backgroundColor);
 		GuiUtils.drawGradientRect(0, tooltipX - 3, tooltipY + tooltipHeight + 3, tooltipX + tooltipTextWidth + 3, tooltipY + tooltipHeight + 4, backgroundColor, backgroundColor);
 		GuiUtils.drawGradientRect(0, tooltipX - 3, tooltipY - 3, tooltipX + tooltipTextWidth + 3, tooltipY + tooltipHeight + 3, backgroundColor, backgroundColor);

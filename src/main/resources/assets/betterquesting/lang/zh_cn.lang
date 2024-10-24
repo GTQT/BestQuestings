@@ -336,3 +336,13 @@ betterquesting.notification.tooltip=切换任务通知
 
 betterquesting.context.add_task=添加任务
 betterquesting.context.add_reward=添加奖励
+
+# 任务编辑界面
+gui.edit_task_retrieval.autoConsume=自动消耗
+gui.edit_task_retrieval.consume=消耗
+gui.edit_task_retrieval.entryLogic=条目逻辑
+gui.edit_task_retrieval.groupDetect=组检测
+gui.edit_task_retrieval.ignoreNBT=忽略NBT
+gui.edit_task_retrieval.partialMatch=部分匹配
+gui.edit_task_retrieval.requiredItems=所需物品
+gui.edit_task_retrieval.list=列表...
