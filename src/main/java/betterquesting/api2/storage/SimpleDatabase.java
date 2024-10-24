@@ -1,5 +1,6 @@
 package betterquesting.api2.storage;
 
+import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import it.unimi.dsi.fastutil.longs.LongCollection;
 import it.unimi.dsi.fastutil.longs.LongIterator;
 import it.unimi.dsi.fastutil.longs.LongSet;
@@ -9,172 +10,49 @@ import java.util.*;
 
 public class SimpleDatabase<T> extends AbstractDatabase<T> {
 
-    private final LongSet idMap = new LongSet() {
-        @Override
-        public int size() {
-            return 0;
-        }
-
-        @Override
-        public boolean isEmpty() {
-            return false;
-        }
-
-        @Override
-        public boolean contains(Object o) {
-            return false;
-        }
-
-        @Override
-        public LongIterator iterator() {
-            return null;
-        }
-
-        @NotNull
-        @Override
-        public Object[] toArray() {
-            return new Object[0];
-        }
-
-        @Override
-        public LongIterator longIterator() {
-            return null;
-        }
-
-        @Override
-        public <T> T[] toArray(T[] a) {
-            return null;
-        }
-
-        @Override
-        public boolean add(Long aLong) {
-            return false;
-        }
-
-        @Override
-        public boolean remove(Object o) {
-            return false;
-        }
-
-        @Override
-        public boolean containsAll(@NotNull Collection<?> c) {
-            return false;
-        }
-
-        @Override
-        public boolean addAll(@NotNull Collection<? extends Long> c) {
-            return false;
-        }
-
-        @Override
-        public boolean removeAll(@NotNull Collection<?> c) {
-            return false;
-        }
-
-        @Override
-        public boolean retainAll(@NotNull Collection<?> c) {
-            return false;
-        }
-
-        @Override
-        public void clear() {
-
-        }
-
-        @Override
-        public boolean equals(Object o) {
-            return false;
-        }
-
-        @Override
-        public int hashCode() {
-            return 0;
-        }
-
-        @Override
-        public boolean contains(long key) {
-            return false;
-        }
-
-        @Override
-        public long[] toLongArray() {
-            return new long[0];
-        }
-
-        @Override
-        public long[] toLongArray(long[] a) {
-            return new long[0];
-        }
-
-        @Override
-        public long[] toArray(long[] a) {
-            return new long[0];
-        }
-
-        @Override
-        public boolean add(long key) {
-            return false;
-        }
-
-        @Override
-        public boolean rem(long key) {
-            return false;
-        }
-
-        @Override
-        public boolean addAll(LongCollection c) {
-            return false;
-        }
-
-        @Override
-        public boolean containsAll(LongCollection c) {
-            return false;
-        }
-
-        @Override
-        public boolean removeAll(LongCollection c) {
-            return false;
-        }
-
-        @Override
-        public boolean retainAll(LongCollection c) {
-            return false;
-        }
-
-        @Override
-        public boolean remove(long k) {
-            return false;
-        }
-    };
+    private final IntOpenHashSet ids = new IntOpenHashSet();
+    /**
+     * the "smallest acceptable" id, any id smaller than this is considered as used and can
+     * be skipped when searching for new id, this condition can be maintained by:
+     * - refresh lowerBound after new id is generated: {@link #nextID()}
+     * - refresh lowerBound after one id is removed: {@link #removeID(int)}
+     */
+    private int lowerBound = 0;
 
     @Override
     public synchronized int nextID() {
-        int id = 0;
-        while (idMap.contains(id)) {
-            id++;
+        for (int i = lowerBound; i < Integer.MAX_VALUE ; i++) {
+            if (!ids.contains(i)) {
+                ids.add(i);
+                lowerBound = i + 1;
+                return i;
+            }
         }
-        return id;
+        throw new IllegalStateException(String.format("All integer id from 0 to %s have been consumed, it's abnormal", Integer.MAX_VALUE));
     }
 
     @Override
     public synchronized DBEntry<T> add(int id, T value) {
         DBEntry<T> result = super.add(id, value);
         // Don't add when an exception is thrown
-        idMap.add(id);
+        ids.add(id);
+        // lowerBound = id; //no, lowerBound will not be refreshed here, but delayed to next `nextID()` call
         return result;
     }
 
     @Override
     public synchronized boolean removeID(int key) {
         boolean result = super.removeID(key);
-        if (result) idMap.remove(key);
+        if (result) {
+            ids.remove(key);
+            lowerBound = Math.min(key, lowerBound);
+        }
         return result;
     }
 
     @Override
     public synchronized void reset() {
         super.reset();
-        idMap.clear();
+        ids.clear();
     }
-
 }

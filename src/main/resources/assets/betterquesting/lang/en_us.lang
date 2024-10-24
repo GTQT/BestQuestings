@@ -258,6 +258,7 @@ bq_standard.task.hunt=Mob Hunt Task
 bq_standard.task.scoreboard=Scoreboard Task
 bq_standard.task.location=Location Task
 bq_standard.task.fluid=Fluid Task
+bq_standard.task.optional_fluid=Optional Fluid Task
 bq_standard.task.meeting=Meeting Task
 bq_standard.task.xp=Experience Task
 bq_standard.task.block_break=Break Block Task
@@ -267,6 +268,8 @@ bq_standard.task.tame=Tame Task
 bq_standard.task.interact_item=Item Interaction Task
 bq_standard.task.interact_entity=Entity Interaction Task
 bq_standard.task.trigger=Criterion Trigger Task
+
+bq_standard.task.search=Search...
 
 bq_standard.reward.choice=Choice Reward
 bq_standard.reward.item=Item Reward

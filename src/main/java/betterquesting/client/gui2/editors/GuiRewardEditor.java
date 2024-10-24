@@ -32,6 +32,7 @@ import betterquesting.network.handlers.NetQuestEdit;
 import betterquesting.questing.QuestDatabase;
 import betterquesting.questing.rewards.RewardRegistry;
 import net.minecraft.client.gui.GuiScreen;
+import net.minecraft.client.resources.I18n;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.nbt.NBTTagList;
 import net.minecraft.util.text.TextFormatting;
@@ -66,7 +67,9 @@ public class GuiRewardEditor extends GuiScreenCanvas implements IPEventListener,
 
         refreshRewards();
     }
-
+    public static String replaceBqStandard(String input) {
+        return input.replace("bq_standard:", "bq_standard.reward.");
+    }
     @Override
     public void initPanel() {
         super.initPanel();
@@ -103,7 +106,7 @@ public class GuiRewardEditor extends GuiScreenCanvas implements IPEventListener,
 
             @Override
             protected boolean addResult(IFactoryData<IReward, NBTTagCompound> entry, int index, int cachedWidth) {
-                this.addPanel(new PanelButtonStorage<>(new GuiRectangle(0, index * 16, cachedWidth, 16, 0), 1, entry.getRegistryName().toString(), entry));
+                this.addPanel(new PanelButtonStorage<>(new GuiRectangle(0, index * 16, cachedWidth, 16, 0), 1, I18n.format(replaceBqStandard(entry.getRegistryName().toString())), entry));
                 return true;
             }
         };
@@ -115,7 +118,7 @@ public class GuiRewardEditor extends GuiScreenCanvas implements IPEventListener,
 
         PanelTextField<String> tfSearch = new PanelTextField<>(new GuiTransform(new Vector4f(0.5F, 0F, 1F, 0F), new GuiPadding(8, 32, 16, -48), 0), "", FieldFilterString.INSTANCE);
         tfSearch.setCallback(cvRegSearch::setSearchFilter);
-        tfSearch.setWatermark("Search...");
+        tfSearch.setWatermark(I18n.format( "bq_standard.task.search"));
         cvBackground.addPanel(tfSearch);
 
         qrList = new CanvasScrolling(new GuiTransform(GuiAlign.HALF_LEFT, new GuiPadding(16, 32, 16, 32), 0));

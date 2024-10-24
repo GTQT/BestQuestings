@@ -3,6 +3,7 @@ package betterquesting.api2.client.gui.controls;
 import betterquesting.api.api.ApiReference;
 import betterquesting.api.api.QuestingAPI;
 import betterquesting.api.enums.EnumQuestState;
+import betterquesting.api.enums.EnumQuestVisibility;
 import betterquesting.api.properties.NativeProps;
 import betterquesting.api.questing.IQuest;
 import betterquesting.api.questing.tasks.ITask;
@@ -25,6 +26,7 @@ import net.minecraft.init.Items;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.util.text.TextFormatting;
 
+import java.beans.Visibility;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -43,23 +45,39 @@ public class PanelButtonQuest extends PanelButtonStorage<DBEntry<IQuest>> {
         player = Minecraft.getMinecraft().player;
         EnumQuestState qState = value == null ? EnumQuestState.LOCKED : value.getValue().getState(player);
         IGuiColor txIconCol = null;
+        boolean main = value == null ? false : value.getValue().getProperty(NativeProps.MAIN);
         boolean lock = false;
 
-        if (value != null) {
-            txFrame = PresetTexture.getExtraQuestFrameTexture(value.getValue().getProperty(NativeProps.FRAME), qState);
-            txIconCol = qState.getColor();
-            if (qState == EnumQuestState.LOCKED)
+        switch (qState) {
+            case LOCKED:
+                txFrame = main ? PresetTexture.QUEST_MAIN_0.getTexture() : PresetTexture.QUEST_NORM_0.getTexture();
+                txIconCol = PresetColor.QUEST_ICON_LOCKED.getColor();
                 lock = true;
-        } else {
-            txFrame = PresetTexture.QUEST_NORM_0.getTexture();
-            txIconCol = PresetColor.QUEST_ICON_LOCKED.getColor();
-            lock = true;
+                break;
+            case UNLOCKED:
+                txFrame = main ? PresetTexture.QUEST_MAIN_1.getTexture() : PresetTexture.QUEST_NORM_1.getTexture();
+                txIconCol = PresetColor.QUEST_ICON_UNLOCKED.getColor();
+                break;
+            case UNCLAIMED:
+                txFrame = main ? PresetTexture.QUEST_MAIN_2.getTexture() : PresetTexture.QUEST_NORM_2.getTexture();
+                txIconCol = PresetColor.QUEST_ICON_PENDING.getColor();
+                break;
+            case COMPLETED:
+                txFrame = main ? PresetTexture.QUEST_MAIN_3.getTexture() : PresetTexture.QUEST_NORM_3.getTexture();
+                txIconCol = PresetColor.QUEST_ICON_COMPLETE.getColor();
+                break;
+            case REPEATABLE:
+                txFrame = main ? PresetTexture.QUEST_MAIN_4.getTexture() : PresetTexture.QUEST_NORM_4.getTexture();
+                txIconCol = PresetColor.QUEST_ICON_REPEATABLE.getColor();
+                break;
+            default:
+                txFrame = null;
         }
 
         IGuiTexture btnTx = new GuiTextureColored(txFrame, txIconCol);
         setTextures(btnTx, btnTx, btnTx);
         setIcon(new OreDictTexture(1F, value == null ? new BigItemStack(Items.NETHER_STAR) : value.getValue().getProperty(NativeProps.ICON), false, true), 4);
-        setActive(QuestingAPI.getAPI(ApiReference.SETTINGS).canUserEdit(player) || !lock || BQ_Settings.viewMode);
+        setActive(QuestingAPI.getAPI(ApiReference.SETTINGS).canUserEdit(player) || !lock || (BQ_Settings.viewMode && !(value.getValue().getProperty(NativeProps.VISIBILITY) == EnumQuestVisibility.HIDDEN)));
     }
 
     @Override
@@ -84,7 +102,11 @@ public class PanelButtonQuest extends PanelButtonStorage<DBEntry<IQuest>> {
     private List<String> getStandardTooltip(IQuest quest, EntityPlayer player, int qID) {
         List<String> list = new ArrayList<>();
 
-        list.add(QuestTranslation.translate(quest.getProperty(NativeProps.NAME)) + (Minecraft.getMinecraft().gameSettings.advancedItemTooltips && QuestSettings.INSTANCE.getProperty(NativeProps.EDIT_MODE) ? (" #" + qID) : ""));
+        String questName = QuestTranslation.translate(quest.getProperty(NativeProps.NAME));
+        if(quest.getProperty(NativeProps.VISIBILITY) == EnumQuestVisibility.HIDDEN && !quest.isUnlocked(QuestingAPI.getQuestingUUID(player))) {
+            questName = TextFormatting.OBFUSCATED + questName;
+        }
+        list.add(questName + (Minecraft.getMinecraft().gameSettings.advancedItemTooltips ? (" #" + qID) : ""));
 
         UUID playerID = QuestingAPI.getQuestingUUID(player);
 
