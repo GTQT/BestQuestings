@@ -7,13 +7,13 @@ import betterquesting.api.questing.*;
 import betterquesting.api.utils.BigItemStack;
 import betterquesting.api.utils.FileExtensionFilter;
 import betterquesting.api.utils.JsonHelper;
+import betterquesting.api2.storage.DBEntry;
 import betterquesting.core.BetterQuesting;
 import betterquesting.questing.rewards.RewardCommand;
 import betterquesting.questing.rewards.RewardItem;
 import betterquesting.questing.rewards.RewardRecipe;
 import betterquesting.questing.rewards.RewardXP;
 import betterquesting.questing.tasks.TaskTrigger;
-import com.google.common.collect.Maps;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -40,9 +40,6 @@ import java.util.Map.Entry;
 public class AdvImporter implements IImporter {
     public static final AdvImporter INSTANCE = new AdvImporter();
     private static final FileFilter FILTER = new FileExtensionFilter(".json");
-    private final TreeMap<ResourceLocation, Map.Entry<UUID, IQuest>> ID_MAP = new TreeMap<>((o1, o2) -> o2.toString().compareToIgnoreCase(o1.toString())); // Reverse sort... because Minecraft does (I think?).
-    private final HashMap<ResourceLocation, List<IQuest>> PENDING_CHILDREN = new HashMap<>();
-    private final List<List<AdvTreeNode>> NODES_BY_DEPTH = new ArrayList<>();
 
     @Override
     public String getUnlocalisedName() {
@@ -98,11 +95,13 @@ public class AdvImporter implements IImporter {
         }
 
         // Partial imports may
-        for (Map.Entry<UUID, IQuest> entry : ID_MAP.values()) {
-            if (entry.getValue().getRequirements().isEmpty() && entry.getValue().getProperty(NativeProps.VISIBILITY) != EnumQuestVisibility.HIDDEN)
+        for (DBEntry<IQuest> entry : ID_MAP.values()) {
+            if (entry.getValue().getRequirements().length <= 0 && entry.getValue().getProperty(NativeProps.VISIBILITY) != EnumQuestVisibility.HIDDEN)
                 generateLayout(entry, lineDB);
         }
     }
+
+    // ===== QUEST PARSER =====
 
     /**
      * Because Minecraft bases the Advancement IDs off the file structure
@@ -124,20 +123,23 @@ public class AdvImporter implements IImporter {
         return new ResourceLocation("minecraft", FilenameUtils.removeExtension(file.getName()));
     }
 
-    private void registerQuest(ResourceLocation id, Map.Entry<UUID, IQuest> entry) {
+    private final TreeMap<ResourceLocation, DBEntry<IQuest>> ID_MAP = new TreeMap<>((o1, o2) -> o2.toString().compareToIgnoreCase(o1.toString())); // Reverse sort... because Minecraft does (I think?).
+    private final HashMap<ResourceLocation, List<IQuest>> PENDING_CHILDREN = new HashMap<>();
+
+    private void registerQuest(ResourceLocation id, DBEntry<IQuest> entry) {
         ID_MAP.put(id, entry);
 
         if (PENDING_CHILDREN.containsKey(id)) {
             for (IQuest q : PENDING_CHILDREN.get(id)) {
-                addReq(q, entry.getKey());
+                addReq(q, entry.getID());
             }
         }
     }
 
     private void loadAdvancemenet(ResourceLocation idName, JsonObject json, IQuestDatabase questDB) {
-        UUID qID = questDB.generateKey();
-        IQuest quest = questDB.createNew(qID);
-        registerQuest(idName, Maps.immutableEntry(qID, quest));
+        int QID = questDB.nextID();
+        IQuest quest = questDB.createNew(QID);
+        registerQuest(idName, new DBEntry<>(QID, quest));
 
         if (json.has("display")) {
             readDisplayInfo(JsonHelper.GetObject(json, "display"), quest);
@@ -153,7 +155,7 @@ public class AdvImporter implements IImporter {
             ResourceLocation parentID = new ResourceLocation(JsonHelper.GetString(json, "parent", ""));
 
             if (ID_MAP.containsKey(parentID)) {
-                addReq(quest, ID_MAP.get(parentID).getKey());
+                addReq(quest, ID_MAP.get(parentID).getID());
             } else {
                 List<IQuest> pending = PENDING_CHILDREN.computeIfAbsent(parentID, k -> new ArrayList<>());
                 pending.add(quest);
@@ -253,16 +255,29 @@ public class AdvImporter implements IImporter {
         }
     }
 
-    private void addReq(IQuest quest, UUID id) {
-        quest.getRequirements().add(id);
+    private void addReq(IQuest quest, int id) {
+        if (containsReq(quest, id)) return;
+        int[] orig = quest.getRequirements();
+        int[] added = Arrays.copyOf(orig, orig.length + 1);
+        added[orig.length] = id;
+        quest.setRequirements(added);
     }
 
-    private void generateLayout(Map.Entry<UUID, IQuest> root, IQuestLineDatabase lineDB) {
+    private boolean containsReq(IQuest quest, int id) {
+        for (int reqID : quest.getRequirements()) if (id == reqID) return true;
+        return false;
+    }
+
+    // ===== LAYOUT GENERATOR =====
+
+    private final List<List<AdvTreeNode>> NODES_BY_DEPTH = new ArrayList<>();
+
+    private void generateLayout(DBEntry<IQuest> root, IQuestLineDatabase lineDB) {
         // Setup: Construct node tree (depth first ordering)
         // Pass 1: Tight pack icons (sort order here if necessary) (can skip if setup does this automatically)
         NODES_BY_DEPTH.clear();
         Stack<AdvTreeNode> stack = new Stack<>();
-        stack.push(new AdvTreeNode(root.getKey()));
+        stack.push(new AdvTreeNode(root.getID()));
 
         while (stack.size() > 0) {
             AdvTreeNode node = stack.pop();
@@ -340,7 +355,7 @@ public class AdvImporter implements IImporter {
         // NOTES: Node Y position uses relative distance from the node above it
 
         // Finalise: Add all nodes to a new quest line named after the root node
-        IQuestLine line = lineDB.createNew(lineDB.generateKey());
+        IQuestLine line = lineDB.createNew(lineDB.nextID());
         line.setProperty(NativeProps.NAME, root.getValue().getProperty(NativeProps.NAME));
         line.setProperty(NativeProps.DESC, root.getValue().getProperty(NativeProps.DESC));
         line.setProperty(NativeProps.VISIBILITY, EnumQuestVisibility.UNLOCKED);
@@ -363,12 +378,12 @@ public class AdvImporter implements IImporter {
     }
 
     private void findChildren(AdvTreeNode parent) {
-        for (Map.Entry<UUID, IQuest> entry : ID_MAP.values()) {
+        for (DBEntry<IQuest> entry : ID_MAP.values()) {
             if (entry.getValue().getProperty(NativeProps.VISIBILITY) == EnumQuestVisibility.HIDDEN) continue;
 
-            for (UUID req : entry.getValue().getRequirements()) {
+            for (int req : entry.getValue().getRequirements()) {
                 if (req == parent.getQuestID()) {
-                    AdvTreeNode child = new AdvTreeNode(entry.getKey());
+                    AdvTreeNode child = new AdvTreeNode(entry.getID());
                     parent.addChild(child);
                 }
             }
@@ -384,9 +399,9 @@ public class AdvImporter implements IImporter {
         // Heirachy info
         private AdvTreeNode parent;
         private final List<AdvTreeNode> children = new ArrayList<>();
-        private final UUID questID;
+        private final int questID;
 
-        private AdvTreeNode(UUID questID) {
+        private AdvTreeNode(int questID) {
             this.questID = questID;
         }
 
@@ -410,7 +425,7 @@ public class AdvImporter implements IImporter {
             return Collections.unmodifiableList(children);
         }
 
-        private UUID getQuestID() {
+        private int getQuestID() {
             return this.questID;
         }
 

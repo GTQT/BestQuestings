@@ -18,10 +18,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class ComponentPanel implements INBTSaveLoad<NBTTagCompound> {
-    // When these are passed off to the GUI context, make sure it's stated whether it's in-editor or not
-    // (only content and navigation need setting up otherwise the GUI might actually edit things before intended use)
-    private final List<String> scripts = new ArrayList<>();
-
     // Purely for organisational purposes
     public String refName = "New Panel";
     public String panelType = new ResourceLocation(ModReference.MODID, "canvas_empty").toString();
@@ -32,6 +28,10 @@ public class ComponentPanel implements INBTSaveLoad<NBTTagCompound> {
 
     private NBTTagCompound transTag = new NBTTagCompound();
     private NBTTagCompound panelData = new NBTTagCompound();
+
+    // When these are passed off to the GUI context, make sure it's stated whether it's in-editor or not
+    // (only content and navigation need setting up otherwise the GUI might actually edit things before intended use)
+    private final List<String> scripts = new ArrayList<>();
 
     public ComponentPanel() {
         setTransform(new GuiTransform(GuiAlign.FULL_BOX, new GuiPadding(8, 8, 8, 8), 0));

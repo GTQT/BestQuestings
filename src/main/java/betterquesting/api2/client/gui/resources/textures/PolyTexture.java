@@ -89,6 +89,7 @@ public class PolyTexture implements IGuiTexture {
         if (shadow) {
             GlStateManager.color(0F, 0F, 0F, 0.5F);
             vertexbuffer.begin(GL11.GL_POLYGON, DefaultVertexFormats.POSITION);
+            ;
 
             for (int i = 0; i < points + 1; i++) // Wraps around by one point
             {
@@ -101,6 +102,7 @@ public class PolyTexture implements IGuiTexture {
 
         color.applyGlColor();
         vertexbuffer.begin(GL11.GL_POLYGON, DefaultVertexFormats.POSITION);
+        ;
 
         for (int i = 0; i < points + 1; i++) // Wraps around by one point
         {

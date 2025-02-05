@@ -103,24 +103,24 @@ public class CanvasScrolling implements IGuiCanvas {
         return Math.round(scrollBounds.getX() + scrollBounds.getWidth() * scrollX.readValue());
     }
 
+    public int getScrollY() {
+        return Math.round(scrollBounds.getY() + scrollBounds.getHeight() * scrollY.readValue());
+    }
+
+    public float getZoom() {
+        return zoomScale.readValue();
+    }
+
     public void setScrollX(int sx) {
         if (scrollBounds.getWidth() <= 0) return;
         scrollX.writeValueRaw((sx - scrollBounds.getX()) / (float) scrollBounds.getWidth());
         lsx = this.getScrollX();
     }
 
-    public int getScrollY() {
-        return Math.round(scrollBounds.getY() + scrollBounds.getHeight() * scrollY.readValue());
-    }
-
     public void setScrollY(int sy) {
         if (scrollBounds.getHeight() <= 0) return;
         scrollY.writeValueRaw((sy - scrollBounds.getY()) / (float) scrollBounds.getHeight());
         lsy = this.getScrollY();
-    }
-
-    public float getZoom() {
-        return zoomScale.readValue();
     }
 
     public void setZoom(float z) {
@@ -136,13 +136,13 @@ public class CanvasScrolling implements IGuiCanvas {
     }
 
     @Override
-    public boolean isEnabled() {
-        return this.enabled;
+    public void setEnabled(boolean state) {
+        this.enabled = state;
     }
 
     @Override
-    public void setEnabled(boolean state) {
-        this.enabled = state;
+    public boolean isEnabled() {
+        return this.enabled;
     }
 
     @Override

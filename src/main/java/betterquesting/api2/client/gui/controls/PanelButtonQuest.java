@@ -3,6 +3,7 @@ package betterquesting.api2.client.gui.controls;
 import betterquesting.api.api.ApiReference;
 import betterquesting.api.api.QuestingAPI;
 import betterquesting.api.enums.EnumQuestState;
+import betterquesting.api.enums.EnumQuestVisibility;
 import betterquesting.api.properties.NativeProps;
 import betterquesting.api.questing.IQuest;
 import betterquesting.api.questing.tasks.ITask;
@@ -25,22 +26,26 @@ import net.minecraft.init.Items;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.util.text.TextFormatting;
 
+import java.beans.Visibility;
 import java.text.DecimalFormat;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.UUID;
 
-public class PanelButtonQuest extends PanelButtonStorage<Map.Entry<UUID, IQuest>> {
+public class PanelButtonQuest extends PanelButtonStorage<DBEntry<IQuest>> {
     public final GuiRectangle rect;
     public final EntityPlayer player;
     public final IGuiTexture txFrame;
 
-    public PanelButtonQuest(GuiRectangle rect, int id, String txt, Map.Entry<UUID, IQuest> value) {
+    public PanelButtonQuest(GuiRectangle rect, int id, String txt, DBEntry<IQuest> value) {
         super(rect, id, txt, value);
         this.rect = rect;
 
         player = Minecraft.getMinecraft().player;
         EnumQuestState qState = value == null ? EnumQuestState.LOCKED : value.getValue().getState(player);
         IGuiColor txIconCol = null;
-        boolean main = value != null && value.getValue().getProperty(NativeProps.MAIN);
+        boolean main = value == null ? false : value.getValue().getProperty(NativeProps.MAIN);
         boolean lock = false;
 
         switch (qState) {
@@ -72,18 +77,18 @@ public class PanelButtonQuest extends PanelButtonStorage<Map.Entry<UUID, IQuest>
         IGuiTexture btnTx = new GuiTextureColored(txFrame, txIconCol);
         setTextures(btnTx, btnTx, btnTx);
         setIcon(new OreDictTexture(1F, value == null ? new BigItemStack(Items.NETHER_STAR) : value.getValue().getProperty(NativeProps.ICON), false, true), 4);
-        setActive(QuestingAPI.getAPI(ApiReference.SETTINGS).canUserEdit(player) || !lock || BQ_Settings.viewMode);
+        setActive(QuestingAPI.getAPI(ApiReference.SETTINGS).canUserEdit(player) || !lock || (BQ_Settings.viewMode && !(value.getValue().getProperty(NativeProps.VISIBILITY) == EnumQuestVisibility.HIDDEN)));
     }
 
     @Override
     public List<String> getTooltip(int mx, int my) {
         if (!this.getTransform().contains(mx, my)) return null;
 
-        Map.Entry<UUID, IQuest> value = this.getStoredValue();
-        return value == null ? Collections.emptyList() : getQuestTooltip(value.getValue(), player, value.getKey());
+        DBEntry<IQuest> value = this.getStoredValue();
+        return value == null ? Collections.emptyList() : getQuestTooltip(value.getValue(), player, value.getID());
     }
 
-    private List<String> getQuestTooltip(IQuest quest, EntityPlayer player, UUID qID) {
+    private List<String> getQuestTooltip(IQuest quest, EntityPlayer player, int qID) {
         List<String> tooltip = getStandardTooltip(quest, player, qID);
 
         if (Minecraft.getMinecraft().gameSettings.advancedItemTooltips && QuestSettings.INSTANCE.getProperty(NativeProps.EDIT_MODE)) {
@@ -94,10 +99,14 @@ public class PanelButtonQuest extends PanelButtonStorage<Map.Entry<UUID, IQuest>
         return tooltip;
     }
 
-    private List<String> getStandardTooltip(IQuest quest, EntityPlayer player, UUID qID) {
+    private List<String> getStandardTooltip(IQuest quest, EntityPlayer player, int qID) {
         List<String> list = new ArrayList<>();
 
-        list.add(QuestTranslation.translateQuestName(qID, quest) + (!Minecraft.getMinecraft().gameSettings.advancedItemTooltips ? "" : (" #" + qID)));
+        String questName = QuestTranslation.translate(quest.getProperty(NativeProps.NAME));
+        if(quest.getProperty(NativeProps.VISIBILITY) == EnumQuestVisibility.HIDDEN && !quest.isUnlocked(QuestingAPI.getQuestingUUID(player))) {
+            questName = TextFormatting.OBFUSCATED + questName;
+        }
+        list.add(questName + (Minecraft.getMinecraft().gameSettings.advancedItemTooltips ? (" #" + qID) : ""));
 
         UUID playerID = QuestingAPI.getQuestingUUID(player);
 
@@ -132,12 +141,14 @@ public class PanelButtonQuest extends PanelButtonStorage<Map.Entry<UUID, IQuest>
                 }
             }
         } else if (!quest.isUnlocked(playerID)) {
-            list.add(TextFormatting.RED + String.valueOf(TextFormatting.UNDERLINE) + QuestTranslation.translate("betterquesting.tooltip.requires") + " (" + quest.getProperty(NativeProps.LOGIC_QUEST).toString().toUpperCase() + ")");
+            list.add(TextFormatting.RED + "" + TextFormatting.UNDERLINE + QuestTranslation.translate("betterquesting.tooltip.requires") + " (" + quest.getProperty(NativeProps.LOGIC_QUEST).toString().toUpperCase() + ")");
 
             // TODO: Make this lookup unnecessary
-            QuestDatabase.INSTANCE.filterKeys(quest.getRequirements()).entrySet().stream()
-                    .filter(entry -> !entry.getValue().isComplete(playerID))
-                    .forEach(entry -> list.add(TextFormatting.RED + "- " + QuestTranslation.translateQuestName(entry)));
+            for (DBEntry<IQuest> req : QuestDatabase.INSTANCE.bulkLookup(quest.getRequirements())) {
+                if (!req.getValue().isComplete(playerID)) {
+                    list.add(TextFormatting.RED + "- " + QuestTranslation.translate(req.getValue().getProperty(NativeProps.NAME)));
+                }
+            }
         } else {
             int n = 0;
 
@@ -153,7 +164,7 @@ public class PanelButtonQuest extends PanelButtonStorage<Map.Entry<UUID, IQuest>
         return list;
     }
 
-    private List<String> getAdvancedTooltip(IQuest quest, EntityPlayer player, UUID qID) {
+    private List<String> getAdvancedTooltip(IQuest quest, EntityPlayer player, int qID) {
         List<String> list = new ArrayList<>();
 
         list.add(TextFormatting.GRAY + QuestTranslation.translate("betterquesting.tooltip.global_quest", quest.getProperty(NativeProps.GLOBAL)));

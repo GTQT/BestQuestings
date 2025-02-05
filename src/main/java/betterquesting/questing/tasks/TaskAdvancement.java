@@ -4,6 +4,7 @@ import betterquesting.api.questing.IQuest;
 import betterquesting.api.questing.tasks.ITask;
 import betterquesting.api2.client.gui.misc.IGuiRect;
 import betterquesting.api2.client.gui.panels.IGuiPanel;
+import betterquesting.api2.storage.DBEntry;
 import betterquesting.api2.utils.ParticipantInfo;
 import betterquesting.client.gui2.editors.tasks.GuiEditTaskAdvancement;
 import betterquesting.client.gui2.tasks.PanelTaskAdvancement;
@@ -39,13 +40,13 @@ public class TaskAdvancement implements ITask {
         return FactoryTaskAdvancement.INSTANCE.getRegistryName();
     }
 
-    public void onAdvancementGet(Map.Entry<UUID, IQuest> quest, ParticipantInfo pInfo, Advancement advancement) {
+    public void onAdvancementGet(DBEntry<IQuest> quest, ParticipantInfo pInfo, Advancement advancement) {
         if (advancement == null || advID == null || !advID.equals(advancement.getId())) return;
         detect(pInfo, quest);
     }
 
     @Override
-    public void detect(ParticipantInfo pInfo, Map.Entry<UUID, IQuest> quest) {
+    public void detect(ParticipantInfo pInfo, DBEntry<IQuest> quest) {
         if (!(pInfo.PLAYER instanceof EntityPlayerMP) || pInfo.PLAYER.getServer() == null || advID == null) return;
 
         Advancement adv = pInfo.PLAYER.getServer().getAdvancementManager().getAdvancement(advID);
@@ -53,7 +54,7 @@ public class TaskAdvancement implements ITask {
         PlayerAdvancements playerAdv = pInfo.PLAYER.getServer().getPlayerList().getPlayerAdvancements((EntityPlayerMP) pInfo.PLAYER);
 
         if (playerAdv.getProgress(adv).isDone()) setComplete(pInfo.UUID);
-        pInfo.markDirty(quest.getKey());
+        pInfo.markDirty(Collections.singletonList(quest.getID()));
     }
 
     @Override
@@ -78,14 +79,14 @@ public class TaskAdvancement implements ITask {
     @Nullable
     @Override
     @SideOnly(Side.CLIENT)
-    public IGuiPanel getTaskGui(IGuiRect rect, Map.Entry<UUID, IQuest> quest) {
+    public IGuiPanel getTaskGui(IGuiRect rect, DBEntry<IQuest> quest) {
         return new PanelTaskAdvancement(rect, this);
     }
 
     @Override
     @Nullable
     @SideOnly(Side.CLIENT)
-    public GuiScreen getTaskEditor(GuiScreen parent, Map.Entry<UUID, IQuest> quest) {
+    public GuiScreen getTaskEditor(GuiScreen parent, DBEntry<IQuest> quest) {
         return new GuiEditTaskAdvancement(parent, quest, this);
     }
 

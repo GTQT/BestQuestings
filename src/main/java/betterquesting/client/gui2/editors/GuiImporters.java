@@ -37,7 +37,6 @@ public class GuiImporters extends GuiScreenCanvas implements IPEventListener, IC
     private CanvasScrolling impDescCV;
     private PanelTextBox impDescTX;
     private PanelButtonStorage<IImporter> impBtn;
-    private IImporter lastImport;
 
     public GuiImporters(GuiScreen parent) {
         super(parent);
@@ -140,6 +139,8 @@ public class GuiImporters extends GuiScreenCanvas implements IPEventListener, IC
             mc.displayGuiScreen(new GuiFileBrowser(this, this, new File(".").getAbsoluteFile().getParentFile(), lastImport.getFileFilter()));
         }
     }
+
+    private IImporter lastImport;
 
     @Override
     public void setValue(File[] files) {

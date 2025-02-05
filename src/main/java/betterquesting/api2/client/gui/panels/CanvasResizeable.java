@@ -16,10 +16,11 @@ import java.util.concurrent.CopyOnWriteArrayList;
 
 public class CanvasResizeable implements IGuiCanvas {
     private final List<IGuiPanel> guiPanels = new CopyOnWriteArrayList<>();
-    private final GuiRectLerp rectLerp;
-    private final boolean crop;
+
     private IGuiTexture bgTexture;
+    private final GuiRectLerp rectLerp;
     private boolean enabled = true;
+    private final boolean crop;
 
     public CanvasResizeable(IGuiRect rect, IGuiTexture texture) {
         this(rect, texture, true);
@@ -56,13 +57,13 @@ public class CanvasResizeable implements IGuiCanvas {
     }
 
     @Override
-    public boolean isEnabled() {
-        return this.enabled;
+    public void setEnabled(boolean state) {
+        this.enabled = state;
     }
 
     @Override
-    public void setEnabled(boolean state) {
-        this.enabled = state;
+    public boolean isEnabled() {
+        return this.enabled;
     }
 
     public void lerpToRect(@Nonnull IGuiRect rect, long time, boolean inheritParent) {

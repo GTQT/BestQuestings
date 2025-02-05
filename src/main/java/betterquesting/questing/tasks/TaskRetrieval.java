@@ -1,5 +1,7 @@
 package betterquesting.questing.tasks;
 
+import betterquesting.NBTUtil;
+import betterquesting.api.enums.EnumLogic;
 import betterquesting.api.questing.IQuest;
 import betterquesting.api.questing.tasks.IItemTask;
 import betterquesting.api.utils.BigItemStack;
@@ -7,7 +9,9 @@ import betterquesting.api.utils.ItemComparison;
 import betterquesting.api.utils.JsonHelper;
 import betterquesting.api2.client.gui.misc.IGuiRect;
 import betterquesting.api2.client.gui.panels.IGuiPanel;
+import betterquesting.api2.storage.DBEntry;
 import betterquesting.api2.utils.ParticipantInfo;
+import betterquesting.client.gui2.editors.tasks.GuiEditTaskRetrieval;
 import betterquesting.client.gui2.tasks.PanelTaskRetrieval;
 import betterquesting.core.BetterQuesting;
 import betterquesting.questing.tasks.factory.FactoryTaskRetrieval;
@@ -31,16 +35,25 @@ import org.apache.logging.log4j.Level;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.*;
+import java.util.stream.IntStream;
 
 public class TaskRetrieval implements ITaskInventory, IItemTask {
-    public final NonNullList<BigItemStack> requiredItems = NonNullList.create();
+
+    private static final boolean DEFAULT_PARTIAL_MATCH = true;
+    private static final boolean DEFAULT_IGNORE_NBT = false;
+    private static final boolean DEFAULT_CONSUME = false;
+    private static final boolean DEFAULT_GROUP_DETECT = false;
+    private static final boolean DEFAULT_AUTO_CONSUME = false;
+    private static final EnumLogic DEFAULT_ENTRY_LOGIC = EnumLogic.AND;
     private final Set<UUID> completeUsers = new TreeSet<>();
+    public final NonNullList<BigItemStack> requiredItems = NonNullList.create();
     private final TreeMap<UUID, int[]> userProgress = new TreeMap<>();
-    public boolean partialMatch = true;
-    public boolean ignoreNBT = false;
-    public boolean consume = false;
-    public boolean groupDetect = false;
-    public boolean autoConsume = false;
+    public boolean partialMatch = DEFAULT_PARTIAL_MATCH;
+    public boolean ignoreNBT = DEFAULT_IGNORE_NBT;
+    public boolean consume = DEFAULT_CONSUME;
+    public boolean groupDetect = DEFAULT_GROUP_DETECT;
+    public boolean autoConsume = DEFAULT_AUTO_CONSUME;
+    public EnumLogic entryLogic = DEFAULT_ENTRY_LOGIC;
 
     @Override
     public String getUnlocalisedName() {
@@ -63,16 +76,18 @@ public class TaskRetrieval implements ITaskInventory, IItemTask {
     }
 
     @Override
-    public void onInventoryChange(@Nonnull Map.Entry<UUID, IQuest> quest, @Nonnull ParticipantInfo pInfo) {
+    public void onInventoryChange(@Nonnull DBEntry<IQuest> quest, @Nonnull ParticipantInfo pInfo) {
         if (!consume || autoConsume) {
             detect(pInfo, quest);
         }
     }
 
     @Override
-    public void detect(ParticipantInfo pInfo, Map.Entry<UUID, IQuest> quest) {
-        if (isComplete(pInfo.UUID)) return;
+    public void detect(ParticipantInfo pInfo, DBEntry<IQuest> quest) {
+        if (isComplete(pInfo.UUID))
+            return;
 
+        // List of (player uuid, [progress per required item])
         final List<Tuple<UUID, int[]>> progress = getBulkProgress(consume ? Collections.singletonList(pInfo.UUID) : pInfo.ALL_UUIDS);
         boolean updated = false;
 
@@ -98,16 +113,17 @@ public class TaskRetrieval implements ITaskInventory, IItemTask {
         if (consume) {
             invoList = Collections.singletonList(pInfo.PLAYER.inventory);
         } else {
-            invoList = new ArrayList<>();
+            invoList = new ArrayList<>(pInfo.ACTIVE_PLAYERS.size());
             pInfo.ACTIVE_PLAYERS.forEach((p) -> invoList.add(p.inventory));
         }
 
+        int[] remCounts = new int[progress.size()];
         for (InventoryPlayer invo : invoList) {
             for (int i = 0; i < invo.getSizeInventory(); i++) {
                 ItemStack stack = invo.getStackInSlot(i);
-                if (stack.isEmpty()) continue;
+                if (stack.isEmpty())
+                    continue;
                 // Allows the stack detection to split across multiple requirements. Counts may vary per person
-                int[] remCounts = new int[progress.size()];
                 Arrays.fill(remCounts, stack.getCount());
 
                 for (int j = 0; j < requiredItems.size(); j++) {
@@ -120,7 +136,8 @@ public class TaskRetrieval implements ITaskInventory, IItemTask {
                     // Theoretically this could work in consume mode for parties but the priority order and manual submission code would need changing
                     for (int n = 0; n < progress.size(); n++) {
                         Tuple<UUID, int[]> value = progress.get(n);
-                        if (value.getSecond()[j] >= rStack.stackSize) continue;
+                        if (value.getSecond()[j] >= rStack.stackSize)
+                            continue;
 
                         int remaining = rStack.stackSize - value.getSecond()[j];
 
@@ -139,20 +156,27 @@ public class TaskRetrieval implements ITaskInventory, IItemTask {
             }
         }
 
-        if (updated) setBulkProgress(progress);
-        checkAndComplete(pInfo, quest, updated);
+        if (updated)
+            setBulkProgress(progress);
+        // Reuse progress
+        checkAndComplete(pInfo, quest, updated, progress);
     }
 
-    private void checkAndComplete(ParticipantInfo pInfo, Map.Entry<UUID, IQuest> quest, boolean resync) {
-        final List<Tuple<UUID, int[]>> progress = getBulkProgress(consume ? Collections.singletonList(pInfo.UUID) : pInfo.ALL_UUIDS);
+    private void checkAndComplete(ParticipantInfo pInfo, DBEntry<IQuest> quest, boolean resync) {
+        checkAndComplete(pInfo, quest, resync, getBulkProgress(consume ? Collections.singletonList(pInfo.UUID) : pInfo.ALL_UUIDS));
+    }
+
+    private void checkAndComplete(ParticipantInfo pInfo, DBEntry<IQuest> quest, boolean resync, List<Tuple<UUID, int[]>> progress) {
         boolean updated = resync;
 
-        topLoop:
         for (Tuple<UUID, int[]> value : progress) {
+            int count = 0;
             for (int j = 0; j < requiredItems.size(); j++) {
-                if (value.getSecond()[j] >= requiredItems.get(j).stackSize) continue;
-                continue topLoop;
+                if (value.getSecond()[j] >= requiredItems.get(j).stackSize)
+                    count++;
             }
+            if (!entryLogic.getResult(count, requiredItems.size()))
+                continue;
 
             updated = true;
 
@@ -166,37 +190,45 @@ public class TaskRetrieval implements ITaskInventory, IItemTask {
 
         if (updated) {
             if (consume) {
-                pInfo.markDirty(quest.getKey());
+                pInfo.markDirty(Collections.singletonList(quest.getID()));
             } else {
-                pInfo.markDirtyParty(quest.getKey());
+                pInfo.markDirtyParty(Collections.singletonList(quest.getID()));
             }
         }
     }
 
+    @Deprecated
     @Override
-    public NBTTagCompound writeToNBT(NBTTagCompound json) {
-        json.setBoolean("partialMatch", partialMatch);
-        json.setBoolean("ignoreNBT", ignoreNBT);
-        json.setBoolean("consume", consume);
-        json.setBoolean("groupDetect", groupDetect);
-        json.setBoolean("autoConsume", autoConsume);
+    public NBTTagCompound writeToNBT(NBTTagCompound nbt) {
+        return writeToNBT(nbt, false);
+    }
+
+    @Override
+    public NBTTagCompound writeToNBT(NBTTagCompound nbt, boolean reduce) {
+        NBTUtil.setBoolean(nbt, "partialMatch", partialMatch, DEFAULT_PARTIAL_MATCH, reduce);
+        NBTUtil.setBoolean(nbt, "ignoreNBT", ignoreNBT, DEFAULT_IGNORE_NBT, reduce);
+        NBTUtil.setBoolean(nbt, "consume", consume, DEFAULT_CONSUME, reduce);
+        NBTUtil.setBoolean(nbt, "groupDetect", groupDetect, DEFAULT_GROUP_DETECT, reduce);
+        NBTUtil.setBoolean(nbt, "autoConsume", autoConsume, DEFAULT_AUTO_CONSUME, reduce);
+        NBTUtil.setString(nbt, "entryLogic", entryLogic.name(), DEFAULT_ENTRY_LOGIC.name(), reduce);
 
         NBTTagList itemArray = new NBTTagList();
         for (BigItemStack stack : this.requiredItems) {
-            itemArray.appendTag(JsonHelper.ItemStackToJson(stack, new NBTTagCompound()));
+            itemArray.appendTag(JsonHelper.ItemStackToJson(stack, new NBTTagCompound(), reduce));
         }
-        json.setTag("requiredItems", itemArray);
+        nbt.setTag("requiredItems", itemArray);
 
-        return json;
+        return nbt;
     }
 
     @Override
     public void readFromNBT(NBTTagCompound nbt) {
-        partialMatch = nbt.getBoolean("partialMatch");
-        ignoreNBT = nbt.getBoolean("ignoreNBT");
-        consume = nbt.getBoolean("consume");
-        groupDetect = nbt.getBoolean("groupDetect");
-        autoConsume = nbt.getBoolean("autoConsume");
+        partialMatch = NBTUtil.getBoolean(nbt, "partialMatch", DEFAULT_PARTIAL_MATCH);
+        ignoreNBT = NBTUtil.getBoolean(nbt, "ignoreNBT", DEFAULT_IGNORE_NBT);
+        consume = NBTUtil.getBoolean(nbt, "consume", DEFAULT_CONSUME);
+        groupDetect = NBTUtil.getBoolean(nbt, "groupDetect", DEFAULT_GROUP_DETECT);
+        autoConsume = NBTUtil.getBoolean(nbt, "autoConsume", DEFAULT_AUTO_CONSUME);
+        entryLogic = NBTUtil.getEnum(nbt, "entryLogic", EnumLogic.class, true, DEFAULT_ENTRY_LOGIC);
 
         requiredItems.clear();
         NBTTagList iList = nbt.getTagList("requiredItems", 10);
@@ -248,14 +280,17 @@ public class TaskRetrieval implements ITaskInventory, IItemTask {
 
         if (users != null) {
             users.forEach((uuid) -> {
-                if (completeUsers.contains(uuid)) jArray.appendTag(new NBTTagString(uuid.toString()));
+                if (completeUsers.contains(uuid))
+                    jArray.appendTag(new NBTTagString(uuid.toString()));
 
                 int[] data = userProgress.get(uuid);
                 if (data != null) {
                     NBTTagCompound pJson = new NBTTagCompound();
                     pJson.setString("uuid", uuid.toString());
                     NBTTagList pArray = new NBTTagList(); // TODO: Why the heck isn't this just an int array?!
-                    for (int i : data) pArray.appendTag(new NBTTagInt(i));
+                    for (int i : data) {
+                        pArray.appendTag(new NBTTagInt(i));
+                    }
                     pJson.setTag("data", pArray);
                     progArray.appendTag(pJson);
                 }
@@ -267,7 +302,9 @@ public class TaskRetrieval implements ITaskInventory, IItemTask {
                 NBTTagCompound pJson = new NBTTagCompound();
                 pJson.setString("uuid", uuid.toString());
                 NBTTagList pArray = new NBTTagList(); // TODO: Why the heck isn't this just an int array?!
-                for (int i : data) pArray.appendTag(new NBTTagInt(i));
+                for (int i : data) {
+                    pArray.appendTag(new NBTTagInt(i));
+                }
                 pJson.setTag("data", pArray);
                 progArray.appendTag(pJson);
             });
@@ -291,12 +328,12 @@ public class TaskRetrieval implements ITaskInventory, IItemTask {
     }
 
     @Override
-    public IGuiPanel getTaskGui(IGuiRect rect, Map.Entry<UUID, IQuest> quest) {
+    public IGuiPanel getTaskGui(IGuiRect rect, DBEntry<IQuest> quest) {
         return new PanelTaskRetrieval(rect, this);
     }
 
     @Override
-    public boolean canAcceptItem(UUID owner, Map.Entry<UUID, IQuest> quest, ItemStack stack) {
+    public boolean canAcceptItem(UUID owner, DBEntry<IQuest> quest, ItemStack stack) {
         if (owner == null || stack == null || stack.isEmpty() || !consume || isComplete(owner) || requiredItems.size() <= 0) {
             return false;
         }
@@ -306,7 +343,8 @@ public class TaskRetrieval implements ITaskInventory, IItemTask {
         for (int j = 0; j < requiredItems.size(); j++) {
             BigItemStack rStack = requiredItems.get(j);
 
-            if (progress[j] >= rStack.stackSize) continue;
+            if (progress[j] >= rStack.stackSize)
+                continue;
 
             if (ItemComparison.StackMatch(rStack.getBaseStack(), stack, !ignoreNBT, partialMatch) || ItemComparison.OreDictionaryMatch(rStack.getOreIngredient(), rStack.GetTagCompound(), stack, !ignoreNBT, partialMatch)) {
                 return true;
@@ -317,8 +355,9 @@ public class TaskRetrieval implements ITaskInventory, IItemTask {
     }
 
     @Override
-    public ItemStack submitItem(UUID owner, Map.Entry<UUID, IQuest> quest, ItemStack input) {
-        if (owner == null || input.isEmpty() || !consume || isComplete(owner)) return input;
+    public ItemStack submitItem(UUID owner, DBEntry<IQuest> quest, ItemStack input) {
+        if (owner == null || input.isEmpty() || !consume || isComplete(owner))
+            return input;
 
         ItemStack stack = input.copy();
 
@@ -326,11 +365,13 @@ public class TaskRetrieval implements ITaskInventory, IItemTask {
         boolean updated = false;
 
         for (int j = 0; j < requiredItems.size(); j++) {
-            if (stack.isEmpty()) break;
+            if (stack.isEmpty())
+                break;
 
             BigItemStack rStack = requiredItems.get(j);
 
-            if (progress[j] >= rStack.stackSize) continue;
+            if (progress[j] >= rStack.stackSize)
+                continue;
 
             int remaining = rStack.stackSize - progress[j];
 
@@ -339,7 +380,8 @@ public class TaskRetrieval implements ITaskInventory, IItemTask {
                 stack.shrink(removed);
                 progress[j] += removed;
                 updated = true;
-                if (stack.isEmpty()) break;
+                if (stack.isEmpty())
+                    break;
             }
         }
 
@@ -353,15 +395,10 @@ public class TaskRetrieval implements ITaskInventory, IItemTask {
                 checkAndComplete(new ParticipantInfo(player), quest, true);
             } else {
                 // It's implied to be a consume task so no need to lookup the party
-                boolean hasAll = true;
-                for (int j = 0; j < requiredItems.size(); j++) {
-                    if (progress[j] >= requiredItems.get(j).stackSize) continue;
+                int count = (int) IntStream.range(0, requiredItems.size()).filter(j -> progress[j] >= requiredItems.get(j).stackSize).count();
 
-                    hasAll = false;
-                    break;
-                }
-
-                if (hasAll) setComplete(owner);
+                if (entryLogic.getResult(count, requiredItems.size()))
+                    setComplete(owner);
             }
         }
 
@@ -370,8 +407,8 @@ public class TaskRetrieval implements ITaskInventory, IItemTask {
 
     @Override
     @SideOnly(Side.CLIENT)
-    public GuiScreen getTaskEditor(GuiScreen parent, Map.Entry<UUID, IQuest> quest) {
-        return null;
+    public GuiScreen getTaskEditor(GuiScreen parent, DBEntry<IQuest> quest) {
+        return new GuiEditTaskRetrieval(parent, quest, this);
     }
 
     private void setUserProgress(UUID uuid, int[] progress) {
@@ -384,8 +421,9 @@ public class TaskRetrieval implements ITaskInventory, IItemTask {
     }
 
     private List<Tuple<UUID, int[]>> getBulkProgress(@Nonnull List<UUID> uuids) {
-        if (uuids.size() <= 0) return Collections.emptyList();
-        List<Tuple<UUID, int[]>> list = new ArrayList<>();
+        if (uuids.size() <= 0)
+            return Collections.emptyList();
+        List<Tuple<UUID, int[]>> list = new ArrayList<>(uuids.size());
         uuids.forEach((key) -> list.add(new Tuple<>(key, getUsersProgress(key))));
         return list;
     }

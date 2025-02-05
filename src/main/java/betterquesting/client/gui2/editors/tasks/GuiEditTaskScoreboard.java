@@ -4,7 +4,6 @@ import betterquesting.api.api.ApiReference;
 import betterquesting.api.api.QuestingAPI;
 import betterquesting.api.network.QuestingPacket;
 import betterquesting.api.questing.IQuest;
-import betterquesting.api.utils.NBTConverter;
 import betterquesting.api2.client.gui.GuiScreenCanvas;
 import betterquesting.api2.client.gui.controls.PanelButton;
 import betterquesting.api2.client.gui.controls.PanelButtonStorage;
@@ -20,7 +19,9 @@ import betterquesting.api2.client.gui.themes.gui_args.GArgsNBT;
 import betterquesting.api2.client.gui.themes.presets.PresetColor;
 import betterquesting.api2.client.gui.themes.presets.PresetGUIs;
 import betterquesting.api2.client.gui.themes.presets.PresetTexture;
+import betterquesting.api2.storage.DBEntry;
 import betterquesting.api2.utils.QuestTranslation;
+import betterquesting.core.ModReference;
 import betterquesting.questing.tasks.TaskScoreboard;
 import betterquesting.questing.tasks.TaskScoreboard.ScoreOperation;
 import net.minecraft.client.gui.GuiScreen;
@@ -29,15 +30,11 @@ import net.minecraft.nbt.NBTTagList;
 import net.minecraft.util.ResourceLocation;
 import org.lwjgl.input.Keyboard;
 
-import java.util.Map;
-import java.util.UUID;
-
 public class GuiEditTaskScoreboard extends GuiScreenCanvas {
-    private static final ResourceLocation QUEST_EDIT = new ResourceLocation("betterquesting:quest_edit"); // TODO: Really need to make the native packet types accessible in the API
-    private final Map.Entry<UUID, IQuest> quest;
+    private final DBEntry<IQuest> quest;
     private final TaskScoreboard task;
 
-    public GuiEditTaskScoreboard(GuiScreen parent, Map.Entry<UUID, IQuest> quest, TaskScoreboard task) {
+    public GuiEditTaskScoreboard(GuiScreen parent, DBEntry<IQuest> quest, TaskScoreboard task) {
         super(parent);
         this.quest = quest;
         this.task = task;
@@ -72,13 +69,13 @@ public class GuiEditTaskScoreboard extends GuiScreenCanvas {
             }
         });
 
-        cvBackground.addPanel(new PanelTextField<>(new GuiTransform(GuiAlign.MID_CENTER, -50, 0, 150, 16, 0), String.valueOf(task.target), FieldFilterNumber.INT).setCallback(value -> task.target = value));
+        cvBackground.addPanel(new PanelTextField<>(new GuiTransform(GuiAlign.MID_CENTER, -50, 0, 150, 16, 0), "" + task.target, FieldFilterNumber.INT).setCallback(value -> task.target = value));
 
         final GuiScreen screenRef = this;
         cvBackground.addPanel(new PanelButton(new GuiTransform(GuiAlign.MID_CENTER, -100, 16, 200, 16, 0), -1, QuestTranslation.translate("betterquesting.btn.advanced")) {
             @Override
             public void onButtonClick() {
-                mc.displayGuiScreen(QuestingAPI.getAPI(ApiReference.THEME_REG).getGui(PresetGUIs.EDIT_NBT, new GArgsNBT<>(screenRef, task.writeToNBT(new NBTTagCompound()), task::readFromNBT, null)));
+                mc.displayGuiScreen(QuestingAPI.getAPI(ApiReference.THEME_REG).getGui(PresetGUIs.EDIT_NBT, new GArgsNBT<>(screenRef, task.writeToNBT(new NBTTagCompound(), false), task::readFromNBT, null)));
             }
         });
 
@@ -91,12 +88,14 @@ public class GuiEditTaskScoreboard extends GuiScreenCanvas {
         });
     }
 
+    private static final ResourceLocation QUEST_EDIT = new ResourceLocation(ModReference.MODID,"quest_edit"); // TODO: Really need to make the native packet types accessible in the API
+
     private void sendChanges() {
         NBTTagCompound payload = new NBTTagCompound();
         NBTTagList dataList = new NBTTagList();
         NBTTagCompound entry = new NBTTagCompound();
-        NBTConverter.UuidValueType.QUEST.writeId(quest.getKey(), entry);
-        entry.setTag("config", quest.getValue().writeToNBT(new NBTTagCompound()));
+        entry.setInteger("questID", quest.getID());
+        entry.setTag("config", quest.getValue().writeToNBT(new NBTTagCompound(), true));
         dataList.appendTag(entry);
         payload.setTag("data", dataList);
         payload.setInteger("action", 0); // Action: Update data

@@ -39,8 +39,9 @@ import java.util.List;
 public class GuiNbtAdd extends GuiScreenCanvas implements IPEventListener, IVolatileScreen {
     private final NBTBase nbt;
     private final int index;
-    private final List<PanelButtonStorage<NBTBase>> options = new ArrayList<>();
+
     private PanelTextField<String> flKey;
+    private final List<PanelButtonStorage<NBTBase>> options = new ArrayList<>();
     private NBTBase selected = null;
     private PanelButton btnConfirm;
     //private PanelTextBox txtKey;

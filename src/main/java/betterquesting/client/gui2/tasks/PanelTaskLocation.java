@@ -35,14 +35,6 @@ public class PanelTaskLocation extends CanvasMinimum {
         this.task = task;
     }
 
-    private static String getDimName(int dim) {
-        try {
-            return DimensionType.getById(dim).getName();
-        } catch (Exception e) {
-            return "?";
-        }
-    }
-
     @Override
     public void initPanel() {
         super.initPanel();
@@ -132,5 +124,13 @@ public class PanelTaskLocation extends CanvasMinimum {
         this.addPanel(panelCompass);
         panelCompass.setEnabled(task.range >= 0 && !task.hideInfo);
         recalculateSizes();
+    }
+
+    private static String getDimName(int dim) {
+        try {
+            return DimensionType.getById(dim).getName();
+        } catch (Exception e) {
+            return "?";
+        }
     }
 }

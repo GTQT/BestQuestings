@@ -16,16 +16,10 @@ import net.minecraft.util.NonNullList;
 
 import javax.annotation.Nonnull;
 import java.util.HashMap;
-import java.util.Map;
 import java.util.UUID;
 
 public class PlayerContainerListener implements IContainerListener {
     private static final HashMap<UUID, PlayerContainerListener> LISTEN_MAP = new HashMap<>();
-    private EntityPlayer player;
-
-    private PlayerContainerListener(@Nonnull EntityPlayer player) {
-        this.player = player;
-    }
 
     public static void refreshListener(@Nonnull EntityPlayer player) {
         UUID uuid = QuestingAPI.getQuestingUUID(player);
@@ -43,6 +37,17 @@ public class PlayerContainerListener implements IContainerListener {
         }
     }
 
+    public static void removeListener(@Nonnull EntityPlayer player) {
+        UUID uuid = QuestingAPI.getQuestingUUID(player);
+        LISTEN_MAP.remove(uuid);
+    }
+
+    private EntityPlayer player;
+
+    private PlayerContainerListener(@Nonnull EntityPlayer player) {
+        this.player = player;
+    }
+
     @Override
     public void sendAllContents(@Nonnull Container container, @Nonnull NonNullList<ItemStack> nonNullList) {
         updateTasks();
@@ -50,7 +55,10 @@ public class PlayerContainerListener implements IContainerListener {
 
     @Override
     public void sendSlotContents(@Nonnull Container container, int i, @Nonnull ItemStack itemStack) {
-        updateTasks();
+        // Ignore changes outside of main inventory (e.g. crafting grid and armor)
+        if (i >= 9 && i <= 44) {
+            updateTasks();
+        }
     }
 
     @Override
@@ -62,13 +70,6 @@ public class PlayerContainerListener implements IContainerListener {
     }
 
     private void updateTasks() {
-        ParticipantInfo pInfo = new ParticipantInfo(player);
-
-        for (Map.Entry<UUID, IQuest> entry : QuestingAPI.getAPI(ApiReference.QUEST_DB).filterKeys(pInfo.getSharedQuests()).entrySet()) {
-            for (DBEntry<ITask> task : entry.getValue().getTasks().getEntries()) {
-                if (task.getValue() instanceof ITaskInventory)
-                    ((ITaskInventory) task.getValue()).onInventoryChange(entry, pInfo);
-            }
-        }
+        EventHandler.schedulePlayerInventoryCheck(player);
     }
 }

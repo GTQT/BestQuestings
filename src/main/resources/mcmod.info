@@ -1,0 +1,18 @@
+[
+  {
+    "modid": "betterquesting",
+    "name": "Better Questing Unofficial",
+    "description": "A continuation of the popular Questing Mod, Better Questing",
+    "version": "${version}",
+    "mcversion": "${mcversion}",
+    "url": "https://github.com/CleanroomMC/BetterQuesting",
+    "updateUrl": "",
+    "authorList": [
+      "Funwayguy", "CleanroomMC team"
+    ],
+    "credits": "Funwayguy for the original implementation, the GT:NH developers for many implemented features, and fonnymunkey for ideas from his BQ addon",
+    "logoFile": "title.png",
+    "screenshots": [],
+    "dependencies": []
+  }
+]

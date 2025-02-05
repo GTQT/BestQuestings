@@ -14,10 +14,12 @@ import java.util.List;
 
 public class PanelEntityPreview implements IGuiPanel {
     private final IGuiRect transform;
+    private boolean enabled = true;
+
+    public Entity entity;
+
     private final IValueIO<Float> basePitch;
     private final IValueIO<Float> baseYaw;
-    public Entity entity;
-    private boolean enabled = true;
     private IValueIO<Float> pitchDriver;
     private IValueIO<Float> yawDriver;
 
@@ -62,13 +64,13 @@ public class PanelEntityPreview implements IGuiPanel {
     }
 
     @Override
-    public boolean isEnabled() {
-        return this.enabled;
+    public void setEnabled(boolean state) {
+        this.enabled = state;
     }
 
     @Override
-    public void setEnabled(boolean state) {
-        this.enabled = state;
+    public boolean isEnabled() {
+        return this.enabled;
     }
 
     @Override

@@ -112,6 +112,14 @@ public enum PresetIcon {
         this.key = new ResourceLocation(ModReference.MODID, key);
     }
 
+    public IGuiTexture getTexture() {
+        return ThemeRegistry.INSTANCE.getTexture(this.key);
+    }
+
+    public ResourceLocation getKey() {
+        return this.key;
+    }
+
     public static void registerIcons(IThemeRegistry reg) {
         reg.setDefaultTexture(ICON_TICK.key, new SimpleTexture(TX_ICONS, new GuiRectangle(128, 0, 16, 16)).maintainAspect(true));
         reg.setDefaultTexture(ICON_CROSS.key, new SimpleTexture(TX_ICONS, new GuiRectangle(160, 16, 16, 16)).maintainAspect(true));
@@ -194,13 +202,5 @@ public enum PresetIcon {
         reg.setDefaultTexture(ICON_PATREON.key, new SimpleTexture(TX_ICONS, new GuiRectangle(144, 80, 16, 16)).maintainAspect(true));
         reg.setDefaultTexture(ICON_TWITCH.key, new SimpleTexture(TX_ICONS, new GuiRectangle(160, 80, 16, 16)).maintainAspect(true));
         reg.setDefaultTexture(ICON_LOADING.key, new RotatingTexture(TX_ICONS, new GuiRectangle(128, 16, 16, 16)).maintainAspect(true));
-    }
-
-    public IGuiTexture getTexture() {
-        return ThemeRegistry.INSTANCE.getTexture(this.key);
-    }
-
-    public ResourceLocation getKey() {
-        return this.key;
     }
 }

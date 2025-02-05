@@ -19,15 +19,6 @@ public abstract class DatabaseEvent extends Event {
         return this.TYPE;
     }
 
-    public enum DBType {
-        QUEST,
-        CHAPTER,
-        PARTY,
-        NAMES,
-        ALL,
-        OTHER
-    }
-
     @Deprecated
     public static class Update extends DatabaseEvent {
         public Update(DBType type) {
@@ -47,5 +38,14 @@ public abstract class DatabaseEvent extends Event {
         public Save(DBType type) {
             super(type);
         }
+    }
+
+    public enum DBType {
+        QUEST,
+        CHAPTER,
+        PARTY,
+        NAMES,
+        ALL,
+        OTHER
     }
 }

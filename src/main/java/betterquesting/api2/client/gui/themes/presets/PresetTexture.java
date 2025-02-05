@@ -1,5 +1,7 @@
 package betterquesting.api2.client.gui.themes.presets;
 
+import betterquesting.api.enums.EnumFrameType;
+import betterquesting.api.enums.EnumQuestState;
 import betterquesting.api2.client.gui.misc.GuiPadding;
 import betterquesting.api2.client.gui.misc.GuiRectangle;
 import betterquesting.api2.client.gui.resources.textures.IGuiTexture;
@@ -7,10 +9,13 @@ import betterquesting.api2.client.gui.resources.textures.SlicedTexture;
 import betterquesting.api2.client.gui.resources.textures.SlicedTexture.SliceMode;
 import betterquesting.api2.client.gui.themes.IThemeRegistry;
 import betterquesting.client.themes.ThemeRegistry;
-import betterquesting.core.BetterQuesting;
+import betterquesting.core.ModReference;
 import net.minecraft.util.ResourceLocation;
 
+import java.util.Locale;
+
 public enum PresetTexture {
+
     PANEL_MAIN("panel_main"),
     PANEL_DARK("panel_dark"),
     PANEL_INNER("panel_inner"),
@@ -64,27 +69,28 @@ public enum PresetTexture {
     QUEST_MAIN_3("quest_main_3"),
     QUEST_MAIN_4("quest_main_4"),
 
-    // Auxiliary quest frame (not normally used)
-    QUEST_AUX_0("quest_aux_0"),
-    QUEST_AUX_1("quest_aux_1"),
-    QUEST_AUX_2("quest_aux_2"),
-    QUEST_AUX_3("quest_aux_3"),
-    QUEST_AUX_4("quest_aux_4"),
-
     TEXT_BOX_0("text_box_0"),
     TEXT_BOX_1("text_box_1"),
     TEXT_BOX_2("text_box_2"),
 
     TOOLTIP_BG("tooltip_bg");
 
-    public static final ResourceLocation TX_SIMPLE = new ResourceLocation(BetterQuesting.MODID, "textures/gui/simple_frames.png");
-    public static final ResourceLocation TX_QUEST = new ResourceLocation(BetterQuesting.MODID, "textures/gui/quest_frames.png");
-    public static final ResourceLocation TX_NULL = new ResourceLocation(BetterQuesting.MODID, "textures/gui/null_texture.png");
+    public static final ResourceLocation TX_SIMPLE = new ResourceLocation(ModReference.MODID, "textures/gui/simple_frames.png");
+    public static final ResourceLocation TX_QUEST = new ResourceLocation(ModReference.MODID, "textures/gui/quest_frames.png");
+    public static final ResourceLocation TX_NULL = new ResourceLocation(ModReference.MODID, "textures/gui/null_texture.png");
 
     private final ResourceLocation key;
 
     PresetTexture(String key) {
-        this.key = new ResourceLocation(BetterQuesting.MODID, key);
+        this.key = new ResourceLocation(ModReference.MODID, key);
+    }
+
+    public IGuiTexture getTexture() {
+        return ThemeRegistry.INSTANCE.getTexture(this.key);
+    }
+
+    public ResourceLocation getKey() {
+        return this.key;
     }
 
     public static void registerTextures(IThemeRegistry reg) {
@@ -139,11 +145,24 @@ public enum PresetTexture {
         reg.setDefaultTexture(QUEST_MAIN_3.key, new SlicedTexture(TX_QUEST, new GuiRectangle(24, 72, 24, 24), new GuiPadding(8, 8, 8, 8)).setSliceMode(SliceMode.STRETCH));
         reg.setDefaultTexture(QUEST_MAIN_4.key, new SlicedTexture(TX_QUEST, new GuiRectangle(24, 72, 24, 24), new GuiPadding(8, 8, 8, 8)).setSliceMode(SliceMode.STRETCH));
 
-        reg.setDefaultTexture(QUEST_AUX_0.key, new SlicedTexture(TX_QUEST, new GuiRectangle(48, 0, 24, 24), new GuiPadding(8, 8, 8, 8)).setSliceMode(SliceMode.SLICED_STRETCH));
-        reg.setDefaultTexture(QUEST_AUX_1.key, new SlicedTexture(TX_QUEST, new GuiRectangle(48, 24, 24, 24), new GuiPadding(8, 8, 8, 8)).setSliceMode(SliceMode.SLICED_STRETCH));
-        reg.setDefaultTexture(QUEST_AUX_2.key, new SlicedTexture(TX_QUEST, new GuiRectangle(48, 48, 24, 24), new GuiPadding(8, 8, 8, 8)).setSliceMode(SliceMode.SLICED_STRETCH));
-        reg.setDefaultTexture(QUEST_AUX_3.key, new SlicedTexture(TX_QUEST, new GuiRectangle(48, 72, 24, 24), new GuiPadding(8, 8, 8, 8)).setSliceMode(SliceMode.SLICED_STRETCH));
-        reg.setDefaultTexture(QUEST_AUX_4.key, new SlicedTexture(TX_QUEST, new GuiRectangle(48, 72, 24, 24), new GuiPadding(8, 8, 8, 8)).setSliceMode(SliceMode.SLICED_STRETCH));
+        reg.setDefaultTexture(TEXT_BOX_0.key, new SlicedTexture(TX_SIMPLE, new GuiRectangle(0, 28, 8, 8), new GuiPadding(1, 1, 1, 1)).setSliceMode(SliceMode.SLICED_STRETCH));
+        reg.setDefaultTexture(TEXT_BOX_1.key, new SlicedTexture(TX_SIMPLE, new GuiRectangle(8, 28, 8, 8), new GuiPadding(1, 1, 1, 1)).setSliceMode(SliceMode.SLICED_STRETCH));
+        reg.setDefaultTexture(TEXT_BOX_2.key, new SlicedTexture(TX_SIMPLE, new GuiRectangle(16, 28, 8, 8), new GuiPadding(1, 1, 1, 1)).setSliceMode(SliceMode.SLICED_STRETCH));
+        {
+            int idx = 0;
+            for (EnumFrameType frameType : EnumFrameType.values()) {
+                for (EnumQuestState questState : EnumQuestState.values()) {
+                    ResourceLocation id = getExtraQuestFrameTextureId(frameType, questState);
+                    ResourceLocation fileLocation = new ResourceLocation(ModReference.MODID, "textures/gui/ex_frames.png");
+                    int x = (idx % 10) * 24;
+                    int y = (idx / 10) * 24;
+                    reg.setDefaultTexture(id,
+                                          new SlicedTexture(fileLocation, new GuiRectangle(x, y, 24, 24), new GuiPadding(8, 8, 8, 8)).setSliceMode(
+                                                                                                                                                   SliceMode.STRETCH));
+                }
+                idx++;
+            }
+        }
 
         reg.setDefaultTexture(TEXT_BOX_0.key, new SlicedTexture(TX_SIMPLE, new GuiRectangle(0, 28, 8, 8), new GuiPadding(1, 1, 1, 1)).setSliceMode(SliceMode.SLICED_STRETCH));
         reg.setDefaultTexture(TEXT_BOX_1.key, new SlicedTexture(TX_SIMPLE, new GuiRectangle(8, 28, 8, 8), new GuiPadding(1, 1, 1, 1)).setSliceMode(SliceMode.SLICED_STRETCH));
@@ -152,11 +171,13 @@ public enum PresetTexture {
         reg.setDefaultTexture(TOOLTIP_BG.key, new SlicedTexture(TX_SIMPLE, new GuiRectangle(204, 0, 12, 12), new GuiPadding(2, 2, 2, 2)).setSliceMode(SliceMode.SLICED_STRETCH));
     }
 
-    public IGuiTexture getTexture() {
-        return ThemeRegistry.INSTANCE.getTexture(this.key);
+    public static ResourceLocation getExtraQuestFrameTextureId(EnumFrameType frameType, EnumQuestState questState) {
+        return new ResourceLocation(ModReference.MODID,
+                                    "quest_ex_" + frameType.name().toLowerCase(Locale.ROOT) + "_" + questState.name().toLowerCase(Locale.ROOT));
     }
 
-    public ResourceLocation getKey() {
-        return this.key;
+    public static IGuiTexture getExtraQuestFrameTexture(EnumFrameType frameType, EnumQuestState questState) {
+        return ThemeRegistry.INSTANCE.getTexture(getExtraQuestFrameTextureId(frameType, questState));
     }
+
 }

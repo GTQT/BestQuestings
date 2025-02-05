@@ -1,5 +1,6 @@
 package betterquesting.questing.tasks;
 
+import betterquesting.NBTUtil;
 import betterquesting.NbtBlockType;
 import betterquesting.api.questing.IQuest;
 import betterquesting.api.questing.tasks.ITask;
@@ -7,6 +8,7 @@ import betterquesting.api.utils.BigItemStack;
 import betterquesting.api.utils.ItemComparison;
 import betterquesting.api2.client.gui.misc.IGuiRect;
 import betterquesting.api2.client.gui.panels.IGuiPanel;
+import betterquesting.api2.storage.DBEntry;
 import betterquesting.api2.utils.ParticipantInfo;
 import betterquesting.client.gui2.tasks.PanelTaskInteractItem;
 import betterquesting.core.BetterQuesting;
@@ -34,17 +36,26 @@ import javax.annotation.Nullable;
 import java.util.*;
 
 public class TaskInteractItem implements ITask {
-    public final NbtBlockType targetBlock = new NbtBlockType(Blocks.AIR);
+
+    private static final boolean DEFAULT_PARTIAL_MATCH = true;
+    private static final boolean DEFAULT_IGNORE_NBT = false;
+    private static final boolean DEFAULT_USE_MAIN_HAND = true;
+    private static final boolean DEFAULT_USE_OFFHAND = true;
+    private static final boolean DEFAULT_ON_INTERACT = true;
+    private static final boolean DEFAULT_ON_HIT = false;
+    private static final int DEFAULT_REQUIRED = 1;
     private final Set<UUID> completeUsers = new TreeSet<>();
     private final TreeMap<UUID, Integer> userProgress = new TreeMap<>();
+
     public BigItemStack targetItem = new BigItemStack(Items.AIR);
-    public boolean partialMatch = true;
-    public boolean ignoreNBT = false;
-    public boolean useMainHand = true;
-    public boolean useOffHand = true;
-    public boolean onInteract = true;
-    public boolean onHit = false;
-    public int required = 1;
+    public final NbtBlockType targetBlock = new NbtBlockType(Blocks.AIR);
+    public boolean partialMatch = DEFAULT_PARTIAL_MATCH;
+    public boolean ignoreNBT = DEFAULT_IGNORE_NBT;
+    public boolean useMainHand = DEFAULT_USE_MAIN_HAND;
+    public boolean useOffHand = DEFAULT_USE_OFFHAND;
+    public boolean onInteract = DEFAULT_ON_INTERACT;
+    public boolean onHit = DEFAULT_ON_HIT;
+    public int required = DEFAULT_REQUIRED;
 
     @Override
     public String getUnlocalisedName() {
@@ -56,7 +67,7 @@ public class TaskInteractItem implements ITask {
         return FactoryTaskInteractItem.INSTANCE.getRegistryName();
     }
 
-    public void onInteract(ParticipantInfo pInfo, Map.Entry<UUID, IQuest> quest, EnumHand hand, ItemStack item, IBlockState state, BlockPos pos, boolean isHit) {
+    public void onInteract(ParticipantInfo pInfo, DBEntry<IQuest> quest, EnumHand hand, ItemStack item, IBlockState state, BlockPos pos, boolean isHit) {
         if ((!onHit && isHit) || (!onInteract && !isHit)) return;
         if ((!useMainHand && hand == EnumHand.MAIN_HAND) || (!useOffHand && hand == EnumHand.OFF_HAND)) return;
 
@@ -90,18 +101,18 @@ public class TaskInteractItem implements ITask {
             if (np >= required) setComplete(value.getFirst());
         });
 
-        pInfo.markDirtyParty(quest.getKey());
+        pInfo.markDirtyParty(Collections.singletonList(quest.getID()));
     }
 
     @Override
-    public void detect(ParticipantInfo pInfo, Map.Entry<UUID, IQuest> quest) {
+    public void detect(ParticipantInfo pInfo, DBEntry<IQuest> quest) {
         final List<Tuple<UUID, Integer>> progress = getBulkProgress(pInfo.ALL_UUIDS);
 
         progress.forEach((value) -> {
             if (value.getSecond() >= required) setComplete(value.getFirst());
         });
 
-        pInfo.markDirtyParty(quest.getKey());
+        pInfo.markDirtyParty(Collections.singletonList(quest.getID()));
     }
 
     @Override
@@ -127,14 +138,14 @@ public class TaskInteractItem implements ITask {
 
     @Override
     @SideOnly(Side.CLIENT)
-    public IGuiPanel getTaskGui(IGuiRect rect, Map.Entry<UUID, IQuest> quest) {
+    public IGuiPanel getTaskGui(IGuiRect rect, DBEntry<IQuest> quest) {
         return new PanelTaskInteractItem(rect, this);
     }
 
     @Override
     @Nullable
     @SideOnly(Side.CLIENT)
-    public GuiScreen getTaskEditor(GuiScreen parent, Map.Entry<UUID, IQuest> quest) {
+    public GuiScreen getTaskEditor(GuiScreen parent, DBEntry<IQuest> quest) {
         return null;
     }
 
@@ -200,17 +211,23 @@ public class TaskInteractItem implements ITask {
         return nbt;
     }
 
+    @Deprecated
     @Override
     public synchronized NBTTagCompound writeToNBT(NBTTagCompound nbt) {
-        nbt.setTag("item", targetItem.writeToNBT(new NBTTagCompound()));
-        nbt.setTag("block", targetBlock.writeToNBT(new NBTTagCompound()));
-        nbt.setBoolean("ignoreNbt", ignoreNBT);
-        nbt.setBoolean("partialMatch", partialMatch);
-        nbt.setBoolean("allowMainHand", useMainHand);
-        nbt.setBoolean("allowOffHand", useOffHand);
-        nbt.setInteger("requiredUses", required);
-        nbt.setBoolean("onInteract", onInteract);
-        nbt.setBoolean("onHit", onHit);
+        return writeToNBT(nbt, false);
+    }
+
+    @Override
+    public synchronized NBTTagCompound writeToNBT(NBTTagCompound nbt, boolean reduce) {
+        nbt.setTag("item", targetItem.writeToNBT(new NBTTagCompound(), reduce));
+        nbt.setTag("block", targetBlock.writeToNBT(new NBTTagCompound(), reduce));
+        NBTUtil.setBoolean(nbt, "ignoreNbt", ignoreNBT, DEFAULT_IGNORE_NBT, reduce);// Not "ignoreNBT"!!
+        NBTUtil.setBoolean(nbt, "partialMatch", partialMatch, DEFAULT_PARTIAL_MATCH, reduce);
+        NBTUtil.setBoolean(nbt, "allowMainHand", useMainHand, DEFAULT_USE_MAIN_HAND, reduce);
+        NBTUtil.setBoolean(nbt, "allowOffHand", useOffHand, DEFAULT_USE_OFFHAND, reduce);
+        NBTUtil.setInteger(nbt, "requiredUses", required, DEFAULT_REQUIRED, reduce);
+        NBTUtil.setBoolean(nbt, "onInteract", onInteract, DEFAULT_ON_INTERACT, reduce);
+        NBTUtil.setBoolean(nbt, "onHit", onHit, DEFAULT_ON_HIT, reduce);
         return nbt;
     }
 
@@ -218,13 +235,13 @@ public class TaskInteractItem implements ITask {
     public synchronized void readFromNBT(NBTTagCompound nbt) {
         targetItem = new BigItemStack(nbt.getCompoundTag("item"));
         targetBlock.readFromNBT(nbt.getCompoundTag("block"));
-        ignoreNBT = nbt.getBoolean("ignoreNbt");
-        partialMatch = nbt.getBoolean("partialMatch");
-        useMainHand = nbt.getBoolean("allowMainHand");
-        useOffHand = nbt.getBoolean("allowOffHand");
-        required = nbt.getInteger("requiredUses");
-        onInteract = nbt.getBoolean("onInteract");
-        onHit = nbt.getBoolean("onHit");
+        ignoreNBT = NBTUtil.getBoolean(nbt, "ignoreNbt", DEFAULT_IGNORE_NBT);
+        partialMatch = NBTUtil.getBoolean(nbt, "partialMatch", DEFAULT_PARTIAL_MATCH);
+        useMainHand = NBTUtil.getBoolean(nbt, "allowMainHand", DEFAULT_USE_MAIN_HAND);
+        useOffHand = NBTUtil.getBoolean(nbt, "allowOffHand", DEFAULT_USE_OFFHAND);
+        required = NBTUtil.getInteger(nbt, "requiredUses", DEFAULT_REQUIRED);
+        onInteract = NBTUtil.getBoolean(nbt, "onInteract", DEFAULT_ON_INTERACT);
+        onHit = NBTUtil.getBoolean(nbt, "onHit", DEFAULT_ON_HIT);
     }
 
     private void setUserProgress(UUID uuid, Integer progress) {

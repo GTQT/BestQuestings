@@ -5,14 +5,12 @@ import betterquesting.api.questing.IQuest;
 import betterquesting.api.questing.tasks.IFluidTask;
 import betterquesting.api.questing.tasks.IItemTask;
 import betterquesting.api.questing.tasks.ITask;
-import betterquesting.api.utils.NBTConverter;
 import betterquesting.api2.cache.CapabilityProviderQuestCache;
 import betterquesting.api2.cache.QuestCache;
-import betterquesting.api2.storage.IUuidDatabase;
+import betterquesting.api2.storage.DBEntry;
 import betterquesting.core.BetterQuesting;
 import betterquesting.questing.QuestDatabase;
 import betterquesting.storage.QuestSettings;
-import com.google.common.collect.Maps;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.inventory.ISidedInventory;
@@ -38,20 +36,18 @@ import net.minecraftforge.items.IItemHandler;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.Map;
-import java.util.Optional;
 import java.util.UUID;
 
 public class TileSubmitStation extends TileEntity implements IFluidHandler, ISidedInventory, ITickable, IFluidTankProperties {
-    private static final int[] slotsForFace = new int[]{0, 1};
     private final IItemHandler itemHandler;
     private final IFluidHandler fluidHandler;
-    public UUID owner = null;
-    public UUID questID = null;
-    public int taskID = -1;
-    private final NonNullList<ItemStack> itemStack = NonNullList.withSize(2, ItemStack.EMPTY);
+    private NonNullList<ItemStack> itemStack = NonNullList.withSize(2, ItemStack.EMPTY);
     private boolean needsUpdate = false;
-    private Map.Entry<UUID, IQuest> qCached;
+    public UUID owner = null;
+    public int questID = -1;
+    public int taskID = -1;
+
+    private DBEntry<IQuest> qCached;
 
     @SuppressWarnings("WeakerAccess")
     public TileSubmitStation() {
@@ -61,12 +57,12 @@ public class TileSubmitStation extends TileEntity implements IFluidHandler, ISid
         this.fluidHandler = this;
     }
 
-    public Map.Entry<UUID, IQuest> getQuest() {
-        if (questID == null) return null;
+    public DBEntry<IQuest> getQuest() {
+        if (questID < 0) return null;
 
         if (qCached == null) {
-            IQuest tmp = QuestDatabase.INSTANCE.get(questID);
-            if (tmp != null) qCached = Maps.immutableEntry(questID, tmp);
+            IQuest tmp = QuestDatabase.INSTANCE.getValue(questID);
+            if (tmp != null) qCached = new DBEntry<>(questID, tmp);
         }
 
         return qCached;
@@ -74,7 +70,7 @@ public class TileSubmitStation extends TileEntity implements IFluidHandler, ISid
 
     @SuppressWarnings("WeakerAccess")
     public ITask getRawTask() {
-        Map.Entry<UUID, IQuest> q = getQuest();
+        DBEntry<IQuest> q = getQuest();
         if (q == null || taskID < 0) return null;
         return q.getValue().getTasks().getValue(taskID);
     }
@@ -237,7 +233,7 @@ public class TileSubmitStation extends TileEntity implements IFluidHandler, ISid
         long wtt = world.getTotalWorldTime();
         if (wtt % 5 == 0 && owner != null) {
             if (wtt % 20 == 0) qCached = null; // Reset and lookup quest again once every second
-            Map.Entry<UUID, IQuest> q = getQuest();
+            DBEntry<IQuest> q = getQuest();
             IItemTask t = getItemTask();
             MinecraftServer server = world.getMinecraftServer();
             EntityPlayerMP player = server == null ? null : server.getPlayerList().getPlayerByUUID(owner);
@@ -267,8 +263,9 @@ public class TileSubmitStation extends TileEntity implements IFluidHandler, ISid
             }
 
             if (needsUpdate) {
-                if (q != null && qc != null) qc.markQuestDirty(q.getKey()); // Let the cache take care of syncing
+                if (q != null && qc != null) qc.markQuestDirty(q.getID()); // Let the cache take care of syncing
                 needsUpdate = false;
+
             }
         }
     }
@@ -279,11 +276,11 @@ public class TileSubmitStation extends TileEntity implements IFluidHandler, ISid
             return;
         }
 
-        this.questID = QuestDatabase.INSTANCE.lookupKey(quest);
-        this.qCached = Maps.immutableEntry(questID, quest);
+        this.questID = QuestDatabase.INSTANCE.getID(quest);
+        this.qCached = new DBEntry<>(questID, quest);
         this.taskID = quest.getTasks().getID(task);
 
-        if (this.questID == null || this.taskID < 0) {
+        if (this.questID < 0 || this.taskID < 0) {
             reset();
             return;
         }
@@ -293,12 +290,12 @@ public class TileSubmitStation extends TileEntity implements IFluidHandler, ISid
     }
 
     public boolean isSetup() {
-        return owner != null && questID != null && taskID >= 0;
+        return owner != null && questID >= 0 && taskID >= 0;
     }
 
     public void reset() {
         owner = null;
-        questID = null;
+        questID = -1;
         taskID = -1;
         qCached = null;
         this.markDirty();
@@ -340,18 +337,11 @@ public class TileSubmitStation extends TileEntity implements IFluidHandler, ISid
             return;
         }
 
-        questID = null;
-        Optional<UUID> questIDOptional = NBTConverter.UuidValueType.QUEST.tryReadId(tags);
-        if (questIDOptional.isPresent()) {
-            questID = questIDOptional.get();
-        } else if (tags.hasKey("questID")) {
-            // Needed for compatibility with old worlds.
-            questID = IUuidDatabase.convertLegacyId(tags.getInteger("questID"));
-        }
-
+        questID = tags.hasKey("questID") ? tags.getInteger("questID") : -1;
         taskID = tags.hasKey("task") ? tags.getInteger("task") : -1;
 
-        if (!isSetup()) { // All data must be present for this to run correctly
+        if (!isSetup()) // All data must be present for this to run correctly
+        {
             this.reset();
         }
     }
@@ -361,13 +351,15 @@ public class TileSubmitStation extends TileEntity implements IFluidHandler, ISid
     public NBTTagCompound writeToNBT(NBTTagCompound tags) {
         super.writeToNBT(tags);
         tags.setString("owner", owner != null ? owner.toString() : "");
-        NBTConverter.UuidValueType.QUEST.writeId(questID, tags);
+        tags.setInteger("questID", questID);
         tags.setInteger("task", taskID);
 
         tags.setTag("inventory", ItemStackHelper.saveAllItems(new NBTTagCompound(), itemStack));
 
         return tags;
     }
+
+    private static final int[] slotsForFace = new int[]{0, 1};
 
     @Override
     @Nonnull

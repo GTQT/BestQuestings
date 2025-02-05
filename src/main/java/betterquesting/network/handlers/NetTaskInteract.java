@@ -18,8 +18,7 @@ import net.minecraft.util.Tuple;
 import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
 
-import java.util.Map;
-import java.util.UUID;
+import java.util.List;
 
 public class NetTaskInteract {
     private static final ResourceLocation ID_NAME = new ResourceLocation("bq_standard:task_interact");
@@ -41,12 +40,12 @@ public class NetTaskInteract {
         NBTTagCompound tag = message.getFirst();
 
         ParticipantInfo pInfo = new ParticipantInfo(sender);
-        Map<UUID, IQuest> actQuest = QuestingAPI.getAPI(ApiReference.QUEST_DB).filterKeys(pInfo.getSharedQuests());
+        List<DBEntry<IQuest>> actQuest = QuestingAPI.getAPI(ApiReference.QUEST_DB).bulkLookup(pInfo.getSharedQuests());
 
         EnumHand hand = tag.getBoolean("isMainHand") ? EnumHand.MAIN_HAND : EnumHand.OFF_HAND;
         boolean isHit = tag.getBoolean("isHit");
 
-        for (Map.Entry<UUID, IQuest> entry : actQuest.entrySet()) {
+        for (DBEntry<IQuest> entry : actQuest) {
             for (DBEntry<ITask> task : entry.getValue().getTasks().getEntries()) {
                 if (task.getValue() instanceof TaskInteractItem)
                     ((TaskInteractItem) task.getValue()).onInteract(pInfo, entry, hand, ItemStack.EMPTY, Blocks.AIR.getDefaultState(), sender.getPosition(), isHit);

@@ -2,6 +2,7 @@ package betterquesting.commands.admin;
 
 import betterquesting.api.properties.NativeProps;
 import betterquesting.api.questing.IQuest;
+import betterquesting.api2.storage.DBEntry;
 import betterquesting.commands.QuestCommandBase;
 import betterquesting.handlers.SaveLoadHandler;
 import betterquesting.network.handlers.NetQuestSync;
@@ -37,8 +38,8 @@ public class QuestCommandReset extends QuestCommandBase {
             List<String> list = new ArrayList<>();
             list.add("all");
 
-            for (UUID id : QuestDatabase.INSTANCE.keySet()) {
-                list.add(id.toString());
+            for (DBEntry<IQuest> i : QuestDatabase.INSTANCE.getEntries()) {
+                list.add("" + i.getID());
             }
 
             return list;
@@ -72,8 +73,12 @@ public class QuestCommandReset extends QuestCommandBase {
         EntityPlayerMP player = uuid == null ? null : server.getPlayerList().getPlayerByUUID(uuid);
 
         if (action.equalsIgnoreCase("all")) {
-            for (IQuest quest : QuestDatabase.INSTANCE.values()) {
-                quest.resetUser(uuid, true); // Clear progress and state
+            for (DBEntry<IQuest> entry : QuestDatabase.INSTANCE.getEntries()) {
+                if (uuid != null) {
+                    entry.getValue().resetUser(uuid, true); // Clear progress and state
+                } else {
+                    entry.getValue().resetUser(null, true);
+                }
             }
 
             SaveLoadHandler.INSTANCE.markDirty();
@@ -83,19 +88,19 @@ public class QuestCommandReset extends QuestCommandBase {
                 if (player != null) NetQuestSync.sendSync(player, null, false, true);
             } else {
                 sender.sendMessage(new TextComponentTranslation("betterquesting.cmd.reset.all_all"));
-                NetQuestSync.quickSync(null, false, true);
+                NetQuestSync.quickSync(-1, false, true);
             }
 
         } else {
             try {
-                UUID id = UUID.fromString(action.trim());
-                IQuest quest = QuestDatabase.INSTANCE.get(id);
+                int id = Integer.parseInt(action.trim());
+                IQuest quest = QuestDatabase.INSTANCE.getValue(id);
 
                 if (uuid != null) {
                     quest.resetUser(uuid, true); // Clear progress and state
                     SaveLoadHandler.INSTANCE.markDirty();
                     sender.sendMessage(new TextComponentTranslation("betterquesting.cmd.reset.player_single", new TextComponentTranslation(quest.getProperty(NativeProps.NAME)), pName));
-                    if (player != null) NetQuestSync.sendSync(player, Collections.singletonList(id), null, true, true);
+                    if (player != null) NetQuestSync.sendSync(player, new int[]{id}, false, true);
                 } else {
                     quest.resetUser(null, true);
                     SaveLoadHandler.INSTANCE.markDirty();
