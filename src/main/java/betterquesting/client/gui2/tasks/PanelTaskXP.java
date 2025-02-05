@@ -46,7 +46,7 @@ public class PanelTaskXP extends CanvasMinimum {
         fillBar.setFillDriver(new ValueFuncIO<>(() -> xpPercent));
         this.addPanel(fillBar);
 
-        this.addPanel(new PanelTextBox(new GuiTransform(GuiAlign.TOP_LEFT, 0, 36, width, 16, -1), TextFormatting.BOLD + "" + xp + "/" + task.amount + (task.levels ? "L" : "XP")).setAlignment(1));
+        this.addPanel(new PanelTextBox(new GuiTransform(GuiAlign.TOP_LEFT, 0, 36, width, 16, -1), TextFormatting.BOLD + String.valueOf(xp) + "/" + task.amount + (task.levels ? "L" : "XP")).setAlignment(1));
         recalculateSizes();
     }
 }

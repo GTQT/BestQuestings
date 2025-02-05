@@ -28,7 +28,7 @@ public class FunctionRegistry<T, E> {
         E arg = def_args.get(idName);
         if (arg != null) return createNew(idName, arg);
 
-        BetterQuesting.logger.error("Registry failed to instantiate new object with ID: " + idName.toString());
+        BetterQuesting.logger.error("Registry failed to instantiate new object with ID: " + idName);
         return null;
     }
 
@@ -38,7 +38,7 @@ public class FunctionRegistry<T, E> {
         try {
             return fact == null ? null : fact.apply(info);
         } catch (Exception e) {
-            BetterQuesting.logger.error("Registry failed to instantiate new object with ID: " + idName.toString(), e);
+            BetterQuesting.logger.error("Registry failed to instantiate new object with ID: " + idName, e);
             return null;
         }
     }

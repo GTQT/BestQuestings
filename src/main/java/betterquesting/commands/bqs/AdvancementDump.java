@@ -8,9 +8,9 @@ import betterquesting.api.properties.NativeProps;
 import betterquesting.api.questing.*;
 import betterquesting.api.questing.tasks.ITask;
 import betterquesting.api.utils.BigItemStack;
-import betterquesting.api2.storage.DBEntry;
 import betterquesting.api2.storage.IDatabaseNBT;
 import betterquesting.questing.tasks.TaskAdvancement;
+import com.google.common.collect.Maps;
 import net.minecraft.advancements.Advancement;
 import net.minecraft.advancements.DisplayInfo;
 import net.minecraft.nbt.NBTTagList;
@@ -22,7 +22,7 @@ import java.util.Map.Entry;
 public class AdvancementDump {
     public static final AdvancementDump INSTANCE = new AdvancementDump();
 
-    private HashMap<Advancement, DBEntry<IQuest>> idMap = new HashMap<>();
+    private final HashMap<Advancement, Map.Entry<UUID, IQuest>> idMap = new HashMap<>();
 
     public void dumpAdvancements(MinecraftServer server) {
         idMap.clear();
@@ -36,7 +36,7 @@ public class AdvancementDump {
         for (Advancement adv : server.getAdvancementManager().getAdvancements()) {
             if (adv.getDisplay() == null) continue; // Hidden advancement
 
-            int id = questDB.nextID();
+            UUID id = questDB.generateKey();
             IQuest quest = questDB.createNew(id);
             IDatabaseNBT<ITask, NBTTagList, NBTTagList> taskDB = quest.getTasks();
             DisplayInfo disp = adv.getDisplay();
@@ -62,27 +62,27 @@ public class AdvancementDump {
             task.advID = adv.getId();
             taskDB.add(taskDB.nextID(), task);
 
-            idMap.put(adv, new DBEntry<>(id, quest));
+            idMap.put(adv, Maps.immutableEntry(id, quest));
         }
 
         // Setup parenting
-        for (Entry<Advancement, DBEntry<IQuest>> entry : idMap.entrySet()) {
+        for (Entry<Advancement, Map.Entry<UUID, IQuest>> entry : idMap.entrySet()) {
             if (entry.getKey().getParent() != null) {
                 Advancement parent = entry.getKey().getParent();
-                DBEntry<IQuest> pq = idMap.get(parent);
+                Map.Entry<UUID, IQuest> pq = idMap.get(parent);
                 if (pq != null) {
-                    addReq(entry.getValue().getValue(), pq.getID());
+                    addReq(entry.getValue().getValue(), pq.getKey());
                 }
             }
         }
 
         // Generate quest lines
         for (Advancement adv : roots) {
-            IQuestLine ql = lineDB.createNew(lineDB.nextID());
+            IQuestLine ql = lineDB.createNew(lineDB.generateKey());
 
             ql.setProperty(NativeProps.NAME, adv.getDisplay().getTitle().getFormattedText());
             ql.setProperty(NativeProps.DESC, adv.getDisplay().getDescription().getFormattedText());
-            IQuestLineEntry qleRoot = ql.createNew(idMap.get(adv).getID());
+            IQuestLineEntry qleRoot = ql.createNew(idMap.get(adv).getKey());
             qleRoot.setPosition((int) (adv.getDisplay().getX() * 32F), (int) (adv.getDisplay().getY() * 32F));
             qleRoot.setSize(24, 24);
 
@@ -94,7 +94,7 @@ public class AdvancementDump {
 
                 while (iter.hasNext()) {
                     Advancement child = iter.next();
-                    IQuestLineEntry qle = ql.createNew(idMap.get(child).getID());
+                    IQuestLineEntry qle = ql.createNew(idMap.get(child).getKey());
                     qle.setPosition((int) (child.getDisplay().getX() * 32F), (int) (child.getDisplay().getY() * 32F));
                     qle.setSize(24, 24);
                     iterStack.add(child.getChildren().iterator());
@@ -103,17 +103,11 @@ public class AdvancementDump {
         }
     }
 
-    private boolean containsReq(IQuest quest, int id) {
-        for (int reqID : quest.getRequirements()) if (id == reqID) return true;
-        return false;
+    private boolean containsReq(IQuest quest, UUID id) {
+        return quest.getRequirements().contains(id);
     }
 
-    private boolean addReq(IQuest quest, int id) {
-        if (containsReq(quest, id)) return false;
-        int[] orig = quest.getRequirements();
-        int[] added = Arrays.copyOf(orig, orig.length + 1);
-        added[orig.length] = id;
-        quest.setRequirements(added);
-        return true;
+    private boolean addReq(IQuest quest, UUID id) {
+        return quest.getRequirements().add(id);
     }
 }

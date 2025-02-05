@@ -10,21 +10,21 @@ import betterquesting.api2.client.gui.panels.CanvasMinimum;
 import betterquesting.api2.client.gui.panels.content.PanelItemSlot;
 import betterquesting.api2.client.gui.panels.content.PanelTextBox;
 import betterquesting.api2.client.gui.themes.presets.PresetColor;
-import betterquesting.api2.storage.DBEntry;
 import betterquesting.network.handlers.NetRewardChoice;
 import betterquesting.questing.rewards.RewardChoice;
 import net.minecraft.client.Minecraft;
 import org.lwjgl.util.vector.Vector4f;
 
+import java.util.Map;
 import java.util.UUID;
 
 public class PanelRewardChoice extends CanvasMinimum {
 
-    private final DBEntry<IQuest> quest;
+    private final Map.Entry<UUID, IQuest> quest;
     private final RewardChoice reward;
     private final IGuiRect initialRect;
 
-    public PanelRewardChoice(IGuiRect rect, DBEntry<IQuest> quest, RewardChoice reward) {
+    public PanelRewardChoice(IGuiRect rect, Map.Entry<UUID, IQuest> quest, RewardChoice reward) {
         super(rect);
         this.initialRect = rect;
         this.quest = quest;
@@ -40,7 +40,7 @@ public class PanelRewardChoice extends CanvasMinimum {
         PanelItemSlot slot = new PanelItemSlot(new GuiTransform(new Vector4f(0F, 0F, 0F, 0F), 0, 0, 32, 32, 0), -1, sel < 0 ? null : reward.choices.get(sel));
         this.addPanel(slot);
 
-        final int qID = quest.getID();
+        final UUID qID = quest.getKey();
         final int rID = quest.getValue().getRewards().getID(reward);
 
         int listWidth = initialRect.getWidth();

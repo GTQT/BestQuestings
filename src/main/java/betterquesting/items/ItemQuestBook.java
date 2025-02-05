@@ -25,7 +25,7 @@ public class ItemQuestBook extends Item {
 
         ItemStack stack = player.getHeldItem(hand);
 
-        if(world.isRemote && stack.getItem() == BetterQuesting.questBook) {
+        if (world.isRemote && stack.getItem() == BetterQuesting.questBook) {
             player.openGui(BetterQuesting.instance, 3, world, player.getPosition().getX(), player.getPosition().getY(), player.getPosition().getZ());
         }
 

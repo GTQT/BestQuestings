@@ -9,15 +9,12 @@ import betterquesting.api2.client.gui.panels.IGuiCanvas;
 import betterquesting.api2.client.gui.resources.textures.IGuiTexture;
 
 public class CanvasHoverTray extends CanvasResizeable {
-    private boolean manualOpen = false;
-
     private final IGuiRect rectClosed;
     private final IGuiRect rectOpen;
-
     // Note: You can still attach things to the base canvas instead of these if they don't need to move/switch
     private final IGuiCanvas cvOpen;
     private final IGuiCanvas cvClosed;
-
+    private boolean manualOpen = false;
     private Runnable actionOpen;
     private Runnable actionClose;
 

@@ -27,7 +27,7 @@ public class SimpleRegistry<T> {
         try {
             return fact == null ? null : fact.call();
         } catch (Exception e) {
-            BetterQuesting.logger.error("Registry failed to instantiate new object with ID: " + idName.toString(), e);
+            BetterQuesting.logger.error("Registry failed to instantiate new object with ID: " + idName, e);
             return null;
         }
     }

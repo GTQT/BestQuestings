@@ -16,9 +16,8 @@ import java.util.Map.Entry;
 
 public class PartyInstance implements IParty {
     private final HashMap<UUID, EnumPartyStatus> members = new HashMap<>();
-    private List<UUID> memCache = null;
-
     private final PropertyContainer pInfo = new PropertyContainer();
+    private List<UUID> memCache = null;
 
     public PartyInstance() {
         this.setupProps();

@@ -27,6 +27,72 @@ public class SlicedTexture implements IGuiTexture {
         this.texBorder = border;
     }
 
+    public static SlicedTexture readFromJson(JsonObject json) {
+        ResourceLocation res = new ResourceLocation(JsonHelper.GetString(json, "texture", "minecraft:missingno"));
+        int slice = JsonHelper.GetNumber(json, "sliceMode", 1).intValue();
+
+        JsonObject jOut = JsonHelper.GetObject(json, "coordinates");
+        int ox = JsonHelper.GetNumber(jOut, "u", 0).intValue();
+        int oy = JsonHelper.GetNumber(jOut, "v", 0).intValue();
+        int ow = JsonHelper.GetNumber(jOut, "w", 48).intValue();
+        int oh = JsonHelper.GetNumber(jOut, "h", 48).intValue();
+
+        JsonObject jIn = JsonHelper.GetObject(json, "border");
+        int il = JsonHelper.GetNumber(jIn, "l", 16).intValue();
+        int it = JsonHelper.GetNumber(jIn, "t", 16).intValue();
+        int ir = JsonHelper.GetNumber(jIn, "r", 16).intValue();
+        int ib = JsonHelper.GetNumber(jIn, "b", 16).intValue();
+
+        return new SlicedTexture(res, new GuiRectangle(ox, oy, ow, oh), new GuiPadding(il, it, ir, ib)).setSliceMode(SliceMode.values()[slice % 3]);
+    }
+
+    // Slightly modified version from GuiUtils.class
+    private static void drawContinuousTexturedBox(ResourceLocation res, int x, int y, int u, int v, int width, int height, int textureWidth, int textureHeight, int topBorder, int bottomBorder, int leftBorder, int rightBorder, float zLevel) {
+        Minecraft.getMinecraft().renderEngine.bindTexture(res);
+
+        GlStateManager.enableBlend();
+        GlStateManager.tryBlendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, 1, 0);
+
+        int fillerWidth = textureWidth - leftBorder - rightBorder;
+        int fillerHeight = textureHeight - topBorder - bottomBorder;
+        if (fillerWidth <= 0 || fillerHeight <= 0) return;
+        int canvasWidth = width - leftBorder - rightBorder;
+        int canvasHeight = height - topBorder - bottomBorder;
+        int xPasses = canvasWidth / fillerWidth;
+        int remainderWidth = canvasWidth % fillerWidth;
+        int yPasses = canvasHeight / fillerHeight;
+        int remainderHeight = canvasHeight % fillerHeight;
+
+        // Draw Border
+        // Top Left
+        GuiUtils.drawTexturedModalRect(x, y, u, v, leftBorder, topBorder, zLevel);
+        // Top Right
+        GuiUtils.drawTexturedModalRect(x + leftBorder + canvasWidth, y, u + leftBorder + fillerWidth, v, rightBorder, topBorder, zLevel);
+        // Bottom Left
+        GuiUtils.drawTexturedModalRect(x, y + topBorder + canvasHeight, u, v + topBorder + fillerHeight, leftBorder, bottomBorder, zLevel);
+        // Bottom Right
+        GuiUtils.drawTexturedModalRect(x + leftBorder + canvasWidth, y + topBorder + canvasHeight, u + leftBorder + fillerWidth, v + topBorder + fillerHeight, rightBorder, bottomBorder, zLevel);
+
+        for (int i = 0; i < xPasses + (remainderWidth > 0 ? 1 : 0); i++) {
+            // Top Border
+            GuiUtils.drawTexturedModalRect(x + leftBorder + (i * fillerWidth), y, u + leftBorder, v, (i == xPasses ? remainderWidth : fillerWidth), topBorder, zLevel);
+            // Bottom Border
+            GuiUtils.drawTexturedModalRect(x + leftBorder + (i * fillerWidth), y + topBorder + canvasHeight, u + leftBorder, v + topBorder + fillerHeight, (i == xPasses ? remainderWidth : fillerWidth), bottomBorder, zLevel);
+
+            // Throw in some filler for good measure
+            for (int j = 0; j < yPasses + (remainderHeight > 0 ? 1 : 0); j++)
+                GuiUtils.drawTexturedModalRect(x + leftBorder + (i * fillerWidth), y + topBorder + (j * fillerHeight), u + leftBorder, v + topBorder, (i == xPasses ? remainderWidth : fillerWidth), (j == yPasses ? remainderHeight : fillerHeight), zLevel);
+        }
+
+        // Side Borders
+        for (int j = 0; j < yPasses + (remainderHeight > 0 ? 1 : 0); j++) {
+            // Left Border
+            GuiUtils.drawTexturedModalRect(x, y + topBorder + (j * fillerHeight), u, v + topBorder, leftBorder, (j == yPasses ? remainderHeight : fillerHeight), zLevel);
+            // Right Border
+            GuiUtils.drawTexturedModalRect(x + leftBorder + canvasWidth, y + topBorder + (j * fillerHeight), u + leftBorder + fillerWidth, v + topBorder, rightBorder, (j == yPasses ? remainderHeight : fillerHeight), zLevel);
+        }
+    }
+
     @Override
     public void drawTexture(int x, int y, int width, int height, float zLevel, float partialTick) {
         drawTexture(x, y, width, height, zLevel, partialTick, defColor);
@@ -161,72 +227,6 @@ public class SlicedTexture implements IGuiTexture {
     public SlicedTexture setSliceMode(SliceMode mode) {
         this.sliceMode = mode;
         return this;
-    }
-
-    public static SlicedTexture readFromJson(JsonObject json) {
-        ResourceLocation res = new ResourceLocation(JsonHelper.GetString(json, "texture", "minecraft:missingno"));
-        int slice = JsonHelper.GetNumber(json, "sliceMode", 1).intValue();
-
-        JsonObject jOut = JsonHelper.GetObject(json, "coordinates");
-        int ox = JsonHelper.GetNumber(jOut, "u", 0).intValue();
-        int oy = JsonHelper.GetNumber(jOut, "v", 0).intValue();
-        int ow = JsonHelper.GetNumber(jOut, "w", 48).intValue();
-        int oh = JsonHelper.GetNumber(jOut, "h", 48).intValue();
-
-        JsonObject jIn = JsonHelper.GetObject(json, "border");
-        int il = JsonHelper.GetNumber(jIn, "l", 16).intValue();
-        int it = JsonHelper.GetNumber(jIn, "t", 16).intValue();
-        int ir = JsonHelper.GetNumber(jIn, "r", 16).intValue();
-        int ib = JsonHelper.GetNumber(jIn, "b", 16).intValue();
-
-        return new SlicedTexture(res, new GuiRectangle(ox, oy, ow, oh), new GuiPadding(il, it, ir, ib)).setSliceMode(SliceMode.values()[slice % 3]);
-    }
-
-    // Slightly modified version from GuiUtils.class
-    private static void drawContinuousTexturedBox(ResourceLocation res, int x, int y, int u, int v, int width, int height, int textureWidth, int textureHeight, int topBorder, int bottomBorder, int leftBorder, int rightBorder, float zLevel) {
-        Minecraft.getMinecraft().renderEngine.bindTexture(res);
-
-        GlStateManager.enableBlend();
-        GlStateManager.tryBlendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, 1, 0);
-
-        int fillerWidth = textureWidth - leftBorder - rightBorder;
-        int fillerHeight = textureHeight - topBorder - bottomBorder;
-        if (fillerWidth <= 0 || fillerHeight <= 0) return;
-        int canvasWidth = width - leftBorder - rightBorder;
-        int canvasHeight = height - topBorder - bottomBorder;
-        int xPasses = canvasWidth / fillerWidth;
-        int remainderWidth = canvasWidth % fillerWidth;
-        int yPasses = canvasHeight / fillerHeight;
-        int remainderHeight = canvasHeight % fillerHeight;
-
-        // Draw Border
-        // Top Left
-        GuiUtils.drawTexturedModalRect(x, y, u, v, leftBorder, topBorder, zLevel);
-        // Top Right
-        GuiUtils.drawTexturedModalRect(x + leftBorder + canvasWidth, y, u + leftBorder + fillerWidth, v, rightBorder, topBorder, zLevel);
-        // Bottom Left
-        GuiUtils.drawTexturedModalRect(x, y + topBorder + canvasHeight, u, v + topBorder + fillerHeight, leftBorder, bottomBorder, zLevel);
-        // Bottom Right
-        GuiUtils.drawTexturedModalRect(x + leftBorder + canvasWidth, y + topBorder + canvasHeight, u + leftBorder + fillerWidth, v + topBorder + fillerHeight, rightBorder, bottomBorder, zLevel);
-
-        for (int i = 0; i < xPasses + (remainderWidth > 0 ? 1 : 0); i++) {
-            // Top Border
-            GuiUtils.drawTexturedModalRect(x + leftBorder + (i * fillerWidth), y, u + leftBorder, v, (i == xPasses ? remainderWidth : fillerWidth), topBorder, zLevel);
-            // Bottom Border
-            GuiUtils.drawTexturedModalRect(x + leftBorder + (i * fillerWidth), y + topBorder + canvasHeight, u + leftBorder, v + topBorder + fillerHeight, (i == xPasses ? remainderWidth : fillerWidth), bottomBorder, zLevel);
-
-            // Throw in some filler for good measure
-            for (int j = 0; j < yPasses + (remainderHeight > 0 ? 1 : 0); j++)
-                GuiUtils.drawTexturedModalRect(x + leftBorder + (i * fillerWidth), y + topBorder + (j * fillerHeight), u + leftBorder, v + topBorder, (i == xPasses ? remainderWidth : fillerWidth), (j == yPasses ? remainderHeight : fillerHeight), zLevel);
-        }
-
-        // Side Borders
-        for (int j = 0; j < yPasses + (remainderHeight > 0 ? 1 : 0); j++) {
-            // Left Border
-            GuiUtils.drawTexturedModalRect(x, y + topBorder + (j * fillerHeight), u, v + topBorder, leftBorder, (j == yPasses ? remainderHeight : fillerHeight), zLevel);
-            // Right Border
-            GuiUtils.drawTexturedModalRect(x + leftBorder + canvasWidth, y + topBorder + (j * fillerHeight), u + leftBorder + fillerWidth, v + topBorder, rightBorder, (j == yPasses ? remainderHeight : fillerHeight), zLevel);
-        }
     }
 
     public enum SliceMode {

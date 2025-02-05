@@ -3,6 +3,7 @@ package betterquesting.client.toolbox.tools;
 import betterquesting.api.client.toolbox.IToolboxTool;
 import betterquesting.api.questing.IQuestLine;
 import betterquesting.api.questing.IQuestLineEntry;
+import betterquesting.api.utils.NBTConverter;
 import betterquesting.api2.client.gui.controls.PanelButtonQuest;
 import betterquesting.api2.client.gui.panels.lists.CanvasQuestLine;
 import betterquesting.client.gui2.editors.designer.PanelToolController;
@@ -16,11 +17,11 @@ import net.minecraft.util.NonNullList;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.UUID;
 
 public class ToolboxToolGrab implements IToolboxTool {
-    private CanvasQuestLine gui;
-
     private final NonNullList<GrabEntry> grabList = NonNullList.create();
+    private CanvasQuestLine gui;
 
     @Override
     public void initTool(CanvasQuestLine gui) {
@@ -31,7 +32,7 @@ public class ToolboxToolGrab implements IToolboxTool {
     @Override
     public void disableTool() {
         for (GrabEntry grab : grabList) {
-            IQuestLineEntry qle = gui.getQuestLine().getValue(grab.btn.getStoredValue().getID());
+            IQuestLineEntry qle = gui.getQuestLine().get(grab.btn.getStoredValue().getKey());
 
             if (qle != null) {
                 grab.btn.rect.x = qle.getPosX();
@@ -44,13 +45,13 @@ public class ToolboxToolGrab implements IToolboxTool {
 
     @Override
     public void refresh(CanvasQuestLine gui) {
-        if (grabList.size() <= 0) return;
+        if (grabList.isEmpty()) return;
 
         List<GrabEntry> tmp = new ArrayList<>();
 
         for (GrabEntry grab : grabList) {
             for (PanelButtonQuest btn : PanelToolController.selected) {
-                if (btn.getStoredValue().getID() == grab.btn.getStoredValue().getID()) {
+                if (btn.getStoredValue().getKey().equals(grab.btn.getStoredValue().getKey())) {
                     tmp.add(new GrabEntry(btn, grab.offX, grab.offY));
                     break;
                 }
@@ -109,7 +110,7 @@ public class ToolboxToolGrab implements IToolboxTool {
         if (click == 1 && grabList.size() > 0) // Reset tool
         {
             for (GrabEntry grab : grabList) {
-                IQuestLineEntry qle = gui.getQuestLine().getValue(grab.btn.getStoredValue().getID());
+                IQuestLineEntry qle = gui.getQuestLine().get(grab.btn.getStoredValue().getKey());
 
                 if (qle != null) {
                     grab.btn.rect.x = qle.getPosX();
@@ -127,9 +128,9 @@ public class ToolboxToolGrab implements IToolboxTool {
         if (grabList.size() > 0) // Apply positioning
         {
             IQuestLine qLine = gui.getQuestLine();
-            int lID = QuestLineDatabase.INSTANCE.getID(qLine);
+            UUID lID = QuestLineDatabase.INSTANCE.lookupKey(qLine);
             for (GrabEntry grab : grabList) {
-                IQuestLineEntry qle = gui.getQuestLine().getValue(grab.btn.getStoredValue().getID());
+                IQuestLineEntry qle = gui.getQuestLine().get(grab.btn.getStoredValue().getKey());
                 if (qle != null) qle.setPosition(grab.btn.rect.x, grab.btn.rect.y);
             }
 
@@ -137,8 +138,8 @@ public class ToolboxToolGrab implements IToolboxTool {
             NBTTagCompound chPayload = new NBTTagCompound();
             NBTTagList cdList = new NBTTagList();
             NBTTagCompound tagEntry = new NBTTagCompound();
-            tagEntry.setInteger("chapterID", lID);
-            tagEntry.setTag("config", qLine.writeToNBT(new NBTTagCompound(), null, true));
+            NBTConverter.UuidValueType.QUEST_LINE.writeId(lID, tagEntry);
+            tagEntry.setTag("config", qLine.writeToNBT(new NBTTagCompound(), null));
             cdList.appendTag(tagEntry);
             chPayload.setTag("data", cdList);
             chPayload.setInteger("action", 0);
@@ -193,7 +194,7 @@ public class ToolboxToolGrab implements IToolboxTool {
         return grabList.size() <= 0;
     }
 
-    private class GrabEntry {
+    private static class GrabEntry {
         private final PanelButtonQuest btn;
         private final int offX;
         private final int offY;

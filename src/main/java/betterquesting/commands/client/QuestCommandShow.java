@@ -3,7 +3,6 @@ package betterquesting.commands.client;
 import betterquesting.api.api.QuestingAPI;
 import betterquesting.api.questing.IQuest;
 import betterquesting.api2.cache.QuestCache;
-import betterquesting.api2.storage.DBEntry;
 import betterquesting.client.gui2.GuiQuest;
 import betterquesting.client.gui2.GuiQuestLines;
 import betterquesting.commands.QuestCommandBase;
@@ -22,19 +21,20 @@ import net.minecraftforge.server.permission.DefaultPermissionLevel;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 public class QuestCommandShow extends QuestCommandBase {
 
     public static boolean sentViaClick = false;
-    private static int questId = -1;
+    private static UUID questId = null;
 
     @SubscribeEvent
     public void onOpenGui(GuiOpenEvent event) {
-        if (questId != -1) {
+        if (questId != null) {
             event.setGui(new GuiQuest(new GuiQuestLines(null), questId));
             MinecraftForge.EVENT_BUS.unregister(this);
-            questId = -1;
+            questId = null;
         }
     }
 
@@ -47,12 +47,12 @@ public class QuestCommandShow extends QuestCommandBase {
     public void runCommand(MinecraftServer server, CommandBase command, ICommandSender sender, String[] args) throws CommandException {
         if (sender instanceof EntityPlayerSP && args.length == 2) {
             try {
-                questId = Integer.parseInt(args[1]);
+                questId = UUID.fromString(args[1]);
                 if (sentViaClick) {
                     sentViaClick = false;
                     Minecraft.getMinecraft().addScheduledTask(() -> Minecraft.getMinecraft().displayGuiScreen(new GuiQuest(new GuiQuestLines(null), questId)));
                 } else {
-                    IQuest quest = QuestDatabase.INSTANCE.getValue(questId);
+                    IQuest quest = QuestDatabase.INSTANCE.get(questId);
                     if (quest != null) {
                         EntityPlayerSP player = (EntityPlayerSP) sender;
                         if (QuestCache.isQuestShown(quest, QuestingAPI.getQuestingUUID(player), player)) {
@@ -82,7 +82,7 @@ public class QuestCommandShow extends QuestCommandBase {
 
     @Override
     public List<String> autoComplete(MinecraftServer server, ICommandSender sender, String[] args) {
-        return args.length == 2 ? QuestDatabase.INSTANCE.getEntries().stream().map(DBEntry::getID).map(Object::toString).collect(Collectors.toList()) : Collections.emptyList();
+        return args.length == 2 ? QuestDatabase.INSTANCE.keySet().stream().map(Object::toString).collect(Collectors.toList()) : Collections.emptyList();
     }
 
     @Override

@@ -20,14 +20,12 @@ import java.util.function.Function;
 public class ResourceTheme implements IGuiTheme {
     private final ResourceLocation ID;
     private final String dispName;
-
-    private IGuiTheme parentTheme;
-    private ResourceLocation parentID;
-    private boolean cached = false;
-
     private final HashMap<ResourceLocation, IGuiTexture> TEX_MAP = new HashMap<>();
     private final HashMap<ResourceLocation, IGuiColor> COLOR_MAP = new HashMap<>();
     private final HashMap<ResourceLocation, IGuiLine> LINE_MAP = new HashMap<>();
+    private IGuiTheme parentTheme;
+    private final ResourceLocation parentID;
+    private boolean cached = false;
 
     public ResourceTheme(ResourceLocation parentID, ResourceLocation id, String dispName) {
         this.ID = id;

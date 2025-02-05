@@ -20,6 +20,10 @@ public class BqFontRenderer extends FontRenderer {
         ((IReloadableResourceManager) Minecraft.getMinecraft().getResourceManager()).registerReloadListener(this);
     }
 
+    public static boolean isFormatColor(char colorChar) {
+        return colorChar >= '0' && colorChar <= '9' || colorChar >= 'a' && colorChar <= 'f' || colorChar >= 'A' && colorChar <= 'F';
+    }
+
     @Override
     public int drawString(String text, float x, float y, int color, boolean dropShadow) {
         return drawStringScaled(text, x, y, color, dropShadow, 1F);
@@ -59,10 +63,10 @@ public class BqFontRenderer extends FontRenderer {
             this.loadGlyphTexture(j);
             int k = i >>> 4;
             int l = i & 15;
-            double f = (double) k;
-            double f1 = (double) (l + 1);
+            double f = k;
+            double f1 = l + 1;
             double f2 = (double) (ch % 16 * 16) + f;
-            double f3 = (double) ((ch & 255) / 16 * 16);
+            double f3 = (double) (ch & 255) / 16 * 16;
             double f4 = f1 - f - 0.02D;
             double f5 = italic ? 1.0D : 0.0D;
             double ys = 7.99D;
@@ -230,9 +234,5 @@ public class BqFontRenderer extends FontRenderer {
 
             return i;
         }
-    }
-
-    public static boolean isFormatColor(char colorChar) {
-        return colorChar >= '0' && colorChar <= '9' || colorChar >= 'a' && colorChar <= 'f' || colorChar >= 'A' && colorChar <= 'F';
     }
 }

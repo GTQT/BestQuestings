@@ -5,9 +5,9 @@ import betterquesting.api2.client.gui.panels.IGuiPanel;
 import betterquesting.api2.client.gui.resources.textures.IGuiTexture;
 
 public interface IScrollBar extends IValueIO<Float>, IGuiPanel {
-    void setActive(boolean state);
-
     boolean isActive();
+
+    void setActive(boolean state);
 
     IScrollBar setHandleSize(int size, int inset);
 

@@ -37,11 +37,9 @@ public class PartyManager extends SimpleDatabase<IParty> implements IPartyDataba
         Integer cachedID = partyCache.get(uuid);
         IParty cachedParty = cachedID == null ? null : getValue(cachedID);
 
-        if (cachedID != null && cachedParty == null) // Disbanded party
-        {
+        if (cachedID != null && cachedParty == null) { // Disbanded party
             partyCache.remove(uuid);
-        } else if (cachedParty != null) // Active party. Check validity...
-        {
+        } else if (cachedParty != null) { // Active party. Check validity...
             EnumPartyStatus status = cachedParty.getStatus(uuid);
             if (status != null) return new DBEntry<>(cachedID, cachedParty);
             partyCache.remove(uuid); // User isn't a party member anymore

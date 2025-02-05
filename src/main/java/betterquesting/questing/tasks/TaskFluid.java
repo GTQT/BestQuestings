@@ -1,12 +1,11 @@
 package betterquesting.questing.tasks;
-import betterquesting.NBTUtil;
+
 import betterquesting.api.questing.IQuest;
 import betterquesting.api.questing.tasks.IFluidTask;
 import betterquesting.api.questing.tasks.IItemTask;
 import betterquesting.api.utils.JsonHelper;
 import betterquesting.api2.client.gui.misc.IGuiRect;
 import betterquesting.api2.client.gui.panels.IGuiPanel;
-import betterquesting.api2.storage.DBEntry;
 import betterquesting.api2.utils.ParticipantInfo;
 import betterquesting.client.gui2.tasks.PanelTaskFluid;
 import betterquesting.core.BetterQuesting;
@@ -37,19 +36,14 @@ import javax.annotation.Nullable;
 import java.util.*;
 
 public class TaskFluid implements ITaskInventory, IFluidTask, IItemTask {
-
-    private static final boolean DEFAULT_IGNORE_NBT = false;
-    private static final boolean DEFAULT_CONSUME = true;
-    private static final boolean DEFAULT_GROUP_DETECT = false;
-    private static final boolean DEFAULT_AUTO_CONSUME = false;
-    private final Set<UUID> completeUsers = new TreeSet<>();
     public final NonNullList<FluidStack> requiredFluids = NonNullList.create();
     public final TreeMap<UUID, int[]> userProgress = new TreeMap<>();
+    private final Set<UUID> completeUsers = new TreeSet<>();
     //public boolean partialMatch = true; // Not many ideal ways of implementing this with fluid handlers
-    public boolean ignoreNbt = DEFAULT_IGNORE_NBT;
-    public boolean consume = DEFAULT_CONSUME;
-    public boolean groupDetect = DEFAULT_GROUP_DETECT;
-    public boolean autoConsume = DEFAULT_AUTO_CONSUME;
+    public boolean ignoreNbt = false;
+    public boolean consume = true;
+    public boolean groupDetect = false;
+    public boolean autoConsume = false;
 
     @Override
     public ResourceLocation getFactoryID() {
@@ -72,26 +66,25 @@ public class TaskFluid implements ITaskInventory, IFluidTask, IItemTask {
     }
 
     @Override
-    public void onInventoryChange(@Nonnull DBEntry<IQuest> quest, @Nonnull ParticipantInfo pInfo) {
+    public void onInventoryChange(@Nonnull Map.Entry<UUID, IQuest> quest, @Nonnull ParticipantInfo pInfo) {
         if (!consume || autoConsume) {
             detect(pInfo, quest);
         }
     }
 
     @Override
-    public void detect(ParticipantInfo pInfo, DBEntry<IQuest> quest) {
+    public void detect(ParticipantInfo pInfo, Map.Entry<UUID, IQuest> quest) {
         if (isComplete(pInfo.UUID)) return;
 
-        // Removing the consume check here would make the task cheaper on groups and for that reason sharing is
-        // restricted to detect only
-        List<Tuple<UUID, int[]>> progress = getBulkProgress(
-                consume ? Collections.singletonList(pInfo.UUID) : pInfo.ALL_UUIDS);
+        // Removing the consume check here would make the task cheaper on groups and for that reason sharing is restricted to detect only
+        final List<Tuple<UUID, int[]>> progress = getBulkProgress(consume ? Collections.singletonList(pInfo.UUID) : pInfo.ALL_UUIDS);
         boolean updated = false;
 
         if (!consume) {
             if (groupDetect) // Reset all detect progress
+            {
                 progress.forEach((value) -> Arrays.fill(value.getSecond(), 0));
-            else {
+            } else {
                 for (int i = 0; i < requiredFluids.size(); i++) {
                     final int r = requiredFluids.get(i).amount;
                     for (Tuple<UUID, int[]> value : progress) {
@@ -105,9 +98,9 @@ public class TaskFluid implements ITaskInventory, IFluidTask, IItemTask {
             }
         }
 
-        List<InventoryPlayer> invoList;
+        final List<InventoryPlayer> invoList;
         if (consume) {
-            // We do not support consuming resources from other member's inventories.
+            // We do not support consuming resources from other member's invetories.
             // This could otherwise be abused to siphon items/fluids unknowingly
             invoList = Collections.singletonList(pInfo.PLAYER.inventory);
         } else {
@@ -118,87 +111,49 @@ public class TaskFluid implements ITaskInventory, IFluidTask, IItemTask {
         for (InventoryPlayer invo : invoList) {
             for (int i = 0; i < invo.getSizeInventory(); i++) {
                 ItemStack stack = invo.getStackInSlot(i);
-
                 if (stack.isEmpty()) continue;
-
-                // Make a copy of the stack to retrieve the fluid amount & info.
-                // Set count to 1, otherwise fluid handlers may not allow draining
-                var toRetrieveInfo = stack.copy();
-                toRetrieveInfo.setCount(1);
-
-                var handler = FluidUtil.getFluidHandler(toRetrieveInfo);
+                IFluidHandlerItem handler = FluidUtil.getFluidHandler(stack);
                 if (handler == null) continue;
 
+                boolean hasDrained = false;
+
                 for (int j = 0; j < requiredFluids.size(); j++) {
-                    FluidStack rStack = requiredFluids.get(j);
+                    final FluidStack rStack = requiredFluids.get(j);
+                    FluidStack drainOG = rStack.copy();
+                    if (ignoreNbt) drainOG.tag = null;
 
-                    boolean hasDrained = false;
-                    boolean requiresFullDrain = false;
-                    int fullDrainAmt = 0;
+                    // Pre-check
+                    FluidStack sample = handler.drain(drainOG, false);
+                    if (sample == null || sample.amount <= 0) continue;
 
-                    // Initial Check
-                    FluidStack rStackOg = rStack.copy();
-                    rStackOg.amount = (int) Math.ceil((double) rStack.amount / (double) stack.getCount());
-                    FluidStack sample = handler.drain(rStackOg, false);
-                    if (sample == null || sample.amount <= 0) {
-                        // Check if we can drain the entire container instead (Simple Fluid Handler)
-                        if (handler.getTankProperties().length < 1) continue;
-
-                        fullDrainAmt = handler.getTankProperties()[0].getCapacity();
-                        if (fullDrainAmt <= 0) continue;
-                        rStackOg.amount = fullDrainAmt;
-
-                        sample = handler.drain(rStackOg, false);
-                        if (sample == null || sample.amount <= 0) continue;
-
-                        requiresFullDrain = true;
-                    }
-
-                    // Theoretically this could work in consume mode for parties but the priority order and manual
-                    // submission code would need changing
+                    // Theoretically this could work in consume mode for parties but the priority order and manual submission code would need changing
                     for (Tuple<UUID, int[]> value : progress) {
                         if (value.getSecond()[j] >= rStack.amount) continue;
                         int remaining = rStack.amount - value.getSecond()[j];
 
                         FluidStack drain = rStack.copy();
-
-                        // Take the ceiling, so we are not removing less than required
-                        if (requiresFullDrain)
-                            drain.amount = fullDrainAmt;
-                        else
-                            drain.amount = (int) Math.ceil((double) remaining / (double) stack.getCount());
+                        drain.amount = remaining / stack.getCount(); // Must be a multiple of the stack size
                         if (ignoreNbt) drain.tag = null;
                         if (drain.amount <= 0) continue;
 
-                        FluidStack fluid = handler.drain(drain, consume);
+                        FluidStack fluid = handler.drain(drain, consume); // TODO: Look into reducing this to a single call if possible
                         if (fluid == null || fluid.amount <= 0) continue;
 
-                        value.getSecond()[j] += Math.min(fluid.amount * stack.getCount(), remaining);
+                        value.getSecond()[j] += fluid.amount * stack.getCount();
                         hasDrained = true;
                         updated = true;
                     }
-
-                    if (!hasDrained) continue;
-
-                    if (consume) {
-                        // Restore Stack Count
-                        var result = handler.getContainer();
-                        result.setCount(stack.getCount());
-
-                        // Set Contents
-                        invo.setInventorySlotContents(i, result);
-                    }
-
-                    break;
                 }
-            }
 
-            if (updated) setBulkProgress(progress);
-            checkAndComplete(pInfo, quest, updated);
+                if (hasDrained && consume) invo.setInventorySlotContents(i, handler.getContainer());
+            }
         }
+
+        if (updated) setBulkProgress(progress);
+        checkAndComplete(pInfo, quest, updated);
     }
 
-    private void checkAndComplete(ParticipantInfo pInfo, DBEntry<IQuest> quest, boolean resync) {
+    private void checkAndComplete(ParticipantInfo pInfo, Map.Entry<UUID, IQuest> quest, boolean resync) {
         final List<Tuple<UUID, int[]>> progress = getBulkProgress(consume ? Collections.singletonList(pInfo.UUID) : pInfo.ALL_UUIDS);
         boolean updated = resync;
 
@@ -221,26 +176,20 @@ public class TaskFluid implements ITaskInventory, IFluidTask, IItemTask {
 
         if (updated) {
             if (consume) {
-                pInfo.markDirty(Collections.singletonList(quest.getID()));
+                pInfo.markDirty(quest.getKey());
             } else {
-                pInfo.markDirtyParty(Collections.singletonList(quest.getID()));
+                pInfo.markDirtyParty(quest.getKey());
             }
         }
     }
 
-    @Deprecated
     @Override
     public NBTTagCompound writeToNBT(NBTTagCompound nbt) {
-        return writeToNBT(nbt, false);
-    }
-
-    @Override
-    public NBTTagCompound writeToNBT(NBTTagCompound nbt, boolean reduce) {
         //json.setBoolean("partialMatch", partialMatch);
-        NBTUtil.setBoolean(nbt, "ignoreNBT", ignoreNbt, DEFAULT_IGNORE_NBT, reduce);
-        NBTUtil.setBoolean(nbt, "consume", consume, DEFAULT_CONSUME, reduce);
-        NBTUtil.setBoolean(nbt, "groupDetect", groupDetect, DEFAULT_GROUP_DETECT, reduce);
-        NBTUtil.setBoolean(nbt, "autoConsume", autoConsume, DEFAULT_AUTO_CONSUME, reduce);
+        nbt.setBoolean("ignoreNBT", ignoreNbt);
+        nbt.setBoolean("consume", consume);
+        nbt.setBoolean("groupDetect", groupDetect);
+        nbt.setBoolean("autoConsume", autoConsume);
 
         NBTTagList itemArray = new NBTTagList();
         for (FluidStack stack : this.requiredFluids) {
@@ -254,10 +203,10 @@ public class TaskFluid implements ITaskInventory, IFluidTask, IItemTask {
     @Override
     public void readFromNBT(NBTTagCompound nbt) {
         //partialMatch = json.getBoolean("partialMatch");
-        ignoreNbt = NBTUtil.getBoolean(nbt, "ignoreNBT", DEFAULT_IGNORE_NBT);
-        consume = NBTUtil.getBoolean(nbt, "consume", DEFAULT_CONSUME);
-        groupDetect = NBTUtil.getBoolean(nbt, "groupDetect", DEFAULT_GROUP_DETECT);
-        autoConsume = NBTUtil.getBoolean(nbt, "autoConsume", DEFAULT_AUTO_CONSUME);
+        ignoreNbt = nbt.getBoolean("ignoreNBT");
+        consume = nbt.getBoolean("consume");
+        groupDetect = nbt.getBoolean("groupDetect");
+        autoConsume = nbt.getBoolean("autoConsume");
 
         requiredFluids.clear();
         NBTTagList fList = nbt.getTagList("requiredFluids", 10);
@@ -353,18 +302,18 @@ public class TaskFluid implements ITaskInventory, IFluidTask, IItemTask {
 
     @Override
     @SideOnly(Side.CLIENT)
-    public IGuiPanel getTaskGui(IGuiRect rect, DBEntry<IQuest> quest) {
+    public IGuiPanel getTaskGui(IGuiRect rect, Map.Entry<UUID, IQuest> quest) {
         return new PanelTaskFluid(rect, this);
     }
 
     @Override
     @SideOnly(Side.CLIENT)
-    public GuiScreen getTaskEditor(GuiScreen screen, DBEntry<IQuest> quest) {
+    public GuiScreen getTaskEditor(GuiScreen screen, Map.Entry<UUID, IQuest> quest) {
         return null;
     }
 
     @Override
-    public boolean canAcceptFluid(UUID owner, DBEntry<IQuest> quest, FluidStack fluid) {
+    public boolean canAcceptFluid(UUID owner, Map.Entry<UUID, IQuest> quest, FluidStack fluid) {
         if (owner == null || fluid == null || fluid.getFluid() == null || !consume || isComplete(owner) || requiredFluids.size() <= 0) {
             return false;
         }
@@ -381,7 +330,7 @@ public class TaskFluid implements ITaskInventory, IFluidTask, IItemTask {
     }
 
     @Override
-    public boolean canAcceptItem(UUID owner, DBEntry<IQuest> quest, ItemStack item) {
+    public boolean canAcceptItem(UUID owner, Map.Entry<UUID, IQuest> quest, ItemStack item) {
         if (owner == null || item == null || item.isEmpty() || !consume || isComplete(owner) || requiredFluids.size() <= 0) {
             return false;
         }
@@ -402,11 +351,11 @@ public class TaskFluid implements ITaskInventory, IFluidTask, IItemTask {
     }
 
     @Override
-    public FluidStack submitFluid(UUID owner, DBEntry<IQuest> quest, FluidStack fluid) {
+    public FluidStack submitFluid(UUID owner, Map.Entry<UUID, IQuest> quest, FluidStack fluid) {
         return submitFluidInternal(owner, quest, fluid, true);
     }
 
-    private FluidStack submitFluidInternal(UUID owner, DBEntry<IQuest> quest, FluidStack fluid, boolean doFill) {
+    private FluidStack submitFluidInternal(UUID owner, Map.Entry<UUID, IQuest> quest, FluidStack fluid, boolean doFill) {
         if (owner == null || fluid == null || fluid.amount <= 0 || !consume || isComplete(owner) || requiredFluids.size() <= 0) {
             return fluid;
         }
@@ -460,7 +409,7 @@ public class TaskFluid implements ITaskInventory, IFluidTask, IItemTask {
     }
 
     @Override
-    public ItemStack submitItem(UUID owner, DBEntry<IQuest> quest, ItemStack input) {
+    public ItemStack submitItem(UUID owner, Map.Entry<UUID, IQuest> quest, ItemStack input) {
         if (owner == null || input.isEmpty() || !consume || isComplete(owner)) return input;
 
         ItemStack item = input.splitStack(1); // Prevents issues with stack filling/draining

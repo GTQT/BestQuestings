@@ -26,11 +26,11 @@ import java.util.List;
 
 @SideOnly(Side.CLIENT)
 public class QuestNotification {
+    private static final List<QuestNotice> notices = new ArrayList<>();
+
     public static void ScheduleNotice(String mainTxt, String subTxt, ItemStack icon, String sound) {
         if (BQ_Settings.questNotices) notices.add(new QuestNotice(mainTxt, subTxt, icon, sound));
     }
-
-    private static final List<QuestNotice> notices = new ArrayList<>();
 
     public static void resetNotices() {
         notices.clear();
@@ -88,7 +88,7 @@ public class QuestNotification {
         GlStateManager.enableBlend();
         GlStateManager.blendFunc(SourceFactor.SRC_ALPHA, DestFactor.ONE_MINUS_SRC_ALPHA);
 
-        String tmp = TextFormatting.UNDERLINE + "" + TextFormatting.BOLD + QuestTranslation.translate(notice.mainTxt);
+        String tmp = TextFormatting.UNDERLINE + String.valueOf(TextFormatting.BOLD) + QuestTranslation.translate(notice.mainTxt);
         int txtW = RenderUtils.getStringWidth(tmp, mc.fontRenderer);
         mc.fontRenderer.drawString(tmp, width / 2 - txtW / 2, height / 4, color, false);
 
@@ -101,12 +101,12 @@ public class QuestNotification {
     }
 
     public static class QuestNotice {
-        public long startTime;
-        public boolean init = false;
         private final String mainTxt;
         private final String subTxt;
         private final ItemStack icon;
         private final String sound;
+        public long startTime;
+        public boolean init = false;
 
         public QuestNotice(String mainTxt, String subTxt, ItemStack icon, String sound) {
             this.startTime = Minecraft.getSystemTime();

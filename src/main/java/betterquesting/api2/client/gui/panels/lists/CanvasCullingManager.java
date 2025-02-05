@@ -28,6 +28,16 @@ public class CanvasCullingManager {
         this.gridSize = gridSize;
     }
 
+    // TODO: Move this to a utility class
+    private static boolean overlapCheck(IGuiRect rect1, IGuiRect rect2) {
+        if (rect1.getX() + rect1.getWidth() < rect2.getX() || rect1.getX() > rect2.getX() + rect2.getWidth()) // Rectangle outside width bounds
+        {
+            return false;
+        } else {
+            return rect1.getY() + rect1.getHeight() >= rect2.getY() && rect1.getY() <= rect2.getY() + rect2.getHeight();
+        }
+    }
+
     public void reset() {
         dynamicPanels.clear();
         panelRegions.clear();
@@ -128,21 +138,10 @@ public class CanvasCullingManager {
         }
     }
 
-    // TODO: Move this to a utility class
-    private static boolean overlapCheck(IGuiRect rect1, IGuiRect rect2) {
-        if (rect1.getX() + rect1.getWidth() < rect2.getX() || rect1.getX() > rect2.getX() + rect2.getWidth()) // Rectangle outside width bounds
-        {
-            return false;
-        } else {
-            return rect1.getY() + rect1.getHeight() >= rect2.getY() && rect1.getY() <= rect2.getY() + rect2.getHeight();
-        }
-    }
-
     private static class RegionInfo {
         private final List<IGuiPanel> panels = new ArrayList<>();
-
-        private boolean enabled = false; // Starts disabled so that the cache can be populated on initial checks
         private final GuiRectangle rect; // Needs to be updated with the min-max bounds (doesn't actually conform to any grid)
+        private boolean enabled = false; // Starts disabled so that the cache can be populated on initial checks
 
         private RegionInfo(int blockX, int blockY, int gridSize) {
             this.rect = new GuiRectangle(blockX * gridSize, blockY * gridSize, gridSize, gridSize);

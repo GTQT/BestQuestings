@@ -5,6 +5,7 @@ import betterquesting.api.api.QuestingAPI;
 import betterquesting.api.network.QuestingPacket;
 import betterquesting.api.questing.IQuest;
 import betterquesting.api.questing.tasks.ITask;
+import betterquesting.api.utils.NBTConverter;
 import betterquesting.api2.cache.CapabilityProviderQuestCache;
 import betterquesting.api2.cache.QuestCache;
 import betterquesting.questing.tasks.TaskCheckbox;
@@ -15,6 +16,9 @@ import net.minecraft.util.Tuple;
 import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
 
+import java.util.Optional;
+import java.util.UUID;
+
 public class NetTaskCheckbox {
     private static final ResourceLocation ID_NAME = new ResourceLocation("bq_standard:task_checkbox");
 
@@ -23,9 +27,9 @@ public class NetTaskCheckbox {
     }
 
     @SideOnly(Side.CLIENT)
-    public static void requestClick(int questID, int taskID) {
+    public static void requestClick(UUID questID, int taskID) {
         NBTTagCompound payload = new NBTTagCompound();
-        payload.setInteger("questID", questID);
+        NBTConverter.UuidValueType.QUEST.writeId(questID);
         payload.setInteger("taskID", taskID);
         QuestingAPI.getAPI(ApiReference.PACKET_SENDER).sendToServer(new QuestingPacket(ID_NAME, payload));
     }
@@ -34,17 +38,17 @@ public class NetTaskCheckbox {
         NBTTagCompound data = message.getFirst();
         EntityPlayerMP sender = message.getSecond();
 
-        int qId = !data.hasKey("questID", 99) ? -1 : data.getInteger("questID");
-        int tId = !data.hasKey("taskID", 99) ? -1 : data.getInteger("taskID");
+        Optional<UUID> qId = NBTConverter.UuidValueType.QUEST.tryReadId(data);
+        int tId = data.hasKey("taskID", 99) ? data.getInteger("taskID") : -1;
 
-        if (qId >= 0 && tId >= 0) {
+        if (qId.isPresent() && tId >= 0) {
             QuestCache qc = sender.getCapability(CapabilityProviderQuestCache.CAP_QUEST_CACHE, null);
-            IQuest quest = QuestingAPI.getAPI(ApiReference.QUEST_DB).getValue(qId);
+            IQuest quest = QuestingAPI.getAPI(ApiReference.QUEST_DB).get(qId);
             ITask task = quest == null ? null : quest.getTasks().getValue(tId);
 
             if (task instanceof TaskCheckbox) {
                 task.setComplete(QuestingAPI.getQuestingUUID(sender));
-                if (qc != null) qc.markQuestDirty(qId);
+                if (qc != null) qc.markQuestDirty(qId.get());
             }
         }
     }

@@ -5,7 +5,7 @@ import betterquesting.api.events.DatabaseEvent;
 import betterquesting.api.events.DatabaseEvent.DBType;
 import betterquesting.api.network.QuestingPacket;
 import betterquesting.api.questing.IQuest;
-import betterquesting.api2.storage.DBEntry;
+import betterquesting.api.utils.NBTConverter;
 import betterquesting.api2.utils.BQThreadedIO;
 import betterquesting.core.BetterQuesting;
 import betterquesting.core.ModReference;
@@ -20,14 +20,13 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.Tuple;
 import net.minecraftforge.common.MinecraftForge;
+import net.minecraftforge.common.util.Constants;
 import net.minecraftforge.fml.common.FMLCommonHandler;
 import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
 
 import javax.annotation.Nullable;
-import java.util.Collections;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 
 public class NetQuestSync {
     private static final ResourceLocation ID_NAME = new ResourceLocation(ModReference.MODID, "quest_sync");
@@ -40,12 +39,12 @@ public class NetQuestSync {
         }
     }
 
-    public static void quickSync(int questID, boolean config, boolean progress) {
+    public static void quickSync(@Nullable UUID questID, boolean config, boolean progress) {
         if (!config && !progress) return;
 
-        int[] IDs = questID < 0 ? null : new int[]{questID};
+        Collection<UUID> questIDs = questID == null ? null : Collections.singletonList(questID);
 
-        if (config) sendSync(null, IDs, true, false); // We're not sending progress in this pass.
+        if (config) sendSync(null, questIDs, true, false); // We're not sending progress in this pass.
 
         if (progress) // Send everyone's individual progression
         {
@@ -53,33 +52,34 @@ public class NetQuestSync {
             if (server == null) return;
 
             for (EntityPlayerMP player : server.getPlayerList().getPlayers()) {
-                sendSync(player, IDs, false, true); // Progression only this pass
+                sendSync(player, questIDs, null, true, true); // Progression only this pass
             }
         }
     }
 
     @Deprecated
-    public static void sendSync(@Nullable EntityPlayerMP player, @Nullable int[] questIDs, boolean config, boolean progress) {
+    public static void sendSync(@Nullable EntityPlayerMP player, @Nullable Collection<UUID> questIDs, boolean config, boolean progress) {
         sendSync(player, questIDs, null, config, progress);
     }
 
-    public static void sendSync(@Nullable EntityPlayerMP player, @Nullable int[] questIDs, @Nullable int[] resetIDs, boolean config, boolean progress) {
-        if ((!config && !progress) || (questIDs != null && questIDs.length <= 0)) return;
+    public static void sendSync(@Nullable EntityPlayerMP player, @Nullable Collection<UUID> questIDs, @Nullable Collection<UUID> resetIDs, boolean config, boolean progress) {
+        if ((!config && !progress) || (questIDs != null && questIDs.isEmpty())) return;
 
         // Offload this to another thread as it could take a while to build
         BQThreadedIO.INSTANCE.enqueue(() -> {
             NBTTagList dataList = new NBTTagList();
-            final List<DBEntry<IQuest>> questSubset = questIDs == null ? QuestDatabase.INSTANCE.getEntries() : QuestDatabase.INSTANCE.bulkLookup(questIDs);
+            final Map<UUID, IQuest> questSubset = questIDs == null ? QuestDatabase.INSTANCE : QuestDatabase.INSTANCE.filterKeys(questIDs);
             final List<UUID> pidList = player == null ? null : Collections.singletonList(QuestingAPI.getQuestingUUID(player));
 
-            for (DBEntry<IQuest> entry : questSubset) {
+            for (Map.Entry<UUID, IQuest> entry : questSubset.entrySet()) {
                 NBTTagCompound tag = new NBTTagCompound();
 
                 if (config) tag.setTag("config", entry.getValue().writeToNBT(new NBTTagCompound(), true));
                 if (progress)
                     tag.setTag("progress", entry.getValue().writeProgressToNBT(new NBTTagCompound(), pidList));
-                if (resetIDs != null) tag.setIntArray("resets", resetIDs);
-                tag.setInteger("questID", entry.getID());
+                if (resetIDs != null) tag.setTag("resets", NBTConverter.UuidValueType.QUEST.writeIds(resetIDs));
+
+                NBTConverter.UuidValueType.QUEST.writeId(entry.getKey(), tag);
                 dataList.appendTag(tag);
             }
 
@@ -97,9 +97,9 @@ public class NetQuestSync {
 
     // Asks the server to send specific quest data over
     @SideOnly(Side.CLIENT)
-    public static void requestSync(@Nullable int[] questIDs, boolean configs, boolean progress) {
+    public static void requestSync(@Nullable Collection<UUID> questIDs, boolean configs, boolean progress) {
         NBTTagCompound payload = new NBTTagCompound();
-        if (questIDs != null) payload.setIntArray("requestIDs", questIDs);
+        if (questIDs != null) payload.setTag("requestIDs", NBTConverter.UuidValueType.QUEST.writeIds(questIDs));
         payload.setBoolean("getConfig", configs);
         payload.setBoolean("getProgress", progress);
         PacketSender.INSTANCE.sendToServer(new QuestingPacket(ID_NAME, payload));
@@ -107,7 +107,12 @@ public class NetQuestSync {
 
     private static void onServer(Tuple<NBTTagCompound, EntityPlayerMP> message) {
         NBTTagCompound payload = message.getFirst();
-        int[] reqIDs = !payload.hasKey("requestIDs", 11) ? null : payload.getIntArray("requestIDs");
+        Collection<UUID> reqIDs = null;
+
+        if (payload.hasKey("requestIDs", Constants.NBT.TAG_LIST)) {
+            reqIDs = NBTConverter.UuidValueType.QUEST.readIds(payload, "requestIDs");
+        }
+
         sendSync(message.getSecond(), reqIDs, payload.getBoolean("getConfig"), payload.getBoolean("getProgress"));
     }
 
@@ -115,21 +120,22 @@ public class NetQuestSync {
     private static void onClient(NBTTagCompound message) {
         NBTTagList data = message.getTagList("data", 10);
         boolean merge = message.getBoolean("merge");
-        if (!merge) QuestDatabase.INSTANCE.reset();
+        if (!merge) QuestDatabase.INSTANCE.clear();
 
         for (int i = 0; i < data.tagCount(); i++) {
             NBTTagCompound tag = data.getCompoundTagAt(i);
-            if (!tag.hasKey("questID", 99)) continue;
-            int questID = tag.getInteger("questID");
+            Optional<UUID> questIDOptional = NBTConverter.UuidValueType.QUEST.tryReadId(tag);
+            if (!questIDOptional.isPresent()) continue;
+            UUID questID = questIDOptional.get();
 
-            IQuest quest = QuestDatabase.INSTANCE.getValue(questID);
+            IQuest quest = QuestDatabase.INSTANCE.get(questID);
 
-            if (tag.hasKey("config", 10)) {
+            if (tag.hasKey("config", Constants.NBT.TAG_COMPOUND)) {
                 if (quest == null) quest = QuestDatabase.INSTANCE.createNew(questID);
                 quest.readFromNBT(tag.getCompoundTag("config"));
             }
 
-            if (tag.hasKey("progress", 10) && quest != null) {
+            if (tag.hasKey("progress", Constants.NBT.TAG_COMPOUND) && quest != null) {
                 // TODO: Fix this properly
                 // If there we're not running the LAN server off this client then we overwrite always
                 quest.readProgressFromNBT(tag.getCompoundTag("progress"), merge || Minecraft.getMinecraft().isIntegratedServerRunning());

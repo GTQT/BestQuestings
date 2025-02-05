@@ -21,8 +21,8 @@ import net.minecraft.client.gui.GuiScreen;
 import java.util.function.Consumer;
 
 public class GuiQuestSearch extends GuiScreenCanvas {
-
     private PanelTextField<String> searchBox;
+    private Consumer<QuestSearchEntry> callback;
 
     public GuiQuestSearch(GuiScreen parent) {
         super(parent);
@@ -76,7 +76,7 @@ public class GuiQuestSearch extends GuiScreenCanvas {
         CanvasQuestSearch canvasQuestSearch = new CanvasQuestSearch(new GuiTransform(GuiAlign.FULL_BOX, new GuiPadding(0, 32, 8, 24), 0), mc.player);
         canvasQuestSearch.setQuestOpenCallback(questSearchEntry -> {
             acceptCallback(questSearchEntry);
-            GuiHome.bookmark = new GuiQuest(parent, questSearchEntry.getQuest().getID());
+            GuiHome.bookmark = new GuiQuest(parent, questSearchEntry.getQuest().getKey());
             mc.displayGuiScreen(GuiHome.bookmark);
         });
         canvasQuestSearch.setQuestHighlightCallback(questSearchEntry -> {
@@ -85,8 +85,6 @@ public class GuiQuestSearch extends GuiScreenCanvas {
         });
         return canvasQuestSearch;
     }
-
-    private Consumer<QuestSearchEntry> callback;
 
     public void setCallback(Consumer<QuestSearchEntry> callback) {
         this.callback = callback;

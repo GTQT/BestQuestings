@@ -97,8 +97,8 @@ public class LootGroup extends SimpleDatabase<LootGroup.LootEntry> implements IN
     }
 
     public static class LootEntry implements INBTSaveLoad<NBTTagCompound> {
-        public int weight = 1;
         public final List<BigItemStack> items = new ArrayList<>();
+        public int weight = 1;
 
         @Override
         public void readFromNBT(NBTTagCompound json) {

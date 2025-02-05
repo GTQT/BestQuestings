@@ -19,22 +19,20 @@ import betterquesting.api2.utils.QuestTranslation;
 import betterquesting.misc.QuestSearchEntry;
 import betterquesting.questing.QuestDatabase;
 import betterquesting.questing.QuestLineDatabase;
+import com.google.common.collect.Maps;
 import net.minecraft.entity.player.EntityPlayer;
 import org.apache.commons.lang3.StringUtils;
 
-import java.util.ArrayDeque;
-import java.util.Iterator;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 public class CanvasQuestSearch extends CanvasSearch<QuestSearchEntry, QuestSearchEntry> {
+    private final UUID questingUUID;
     private List<QuestSearchEntry> questList;
     private Consumer<QuestSearchEntry> questOpenCallback;
     private Consumer<QuestSearchEntry> questHighlightCallback;
-    private EntityPlayer player;
-    private final UUID questingUUID;
+    private final EntityPlayer player;
 
     public CanvasQuestSearch(IGuiRect rect, EntityPlayer player) {
         super(rect);
@@ -51,15 +49,15 @@ public class CanvasQuestSearch extends CanvasSearch<QuestSearchEntry, QuestSearc
     }
 
     private List<QuestSearchEntry> collectQuests() {
-        return QuestLineDatabase.INSTANCE.getEntries().stream().flatMap(iQuestLineDBEntry ->
-                iQuestLineDBEntry.getValue().getEntries().stream().map(iQuestLineEntryDBEntry ->
+        return QuestLineDatabase.INSTANCE.entrySet().stream().flatMap(iQuestLineDBEntry ->
+                iQuestLineDBEntry.getValue().entrySet().stream().map(iQuestLineEntryDBEntry ->
                         createQuestSearchEntry(iQuestLineEntryDBEntry, iQuestLineDBEntry)
                 )).collect(Collectors.toList());
     }
 
-    private QuestSearchEntry createQuestSearchEntry(DBEntry<IQuestLineEntry> iQuestLineEntryDBEntry, DBEntry<IQuestLine> iQuestLineDBEntry) {
-        int questId = iQuestLineEntryDBEntry.getID();
-        DBEntry<IQuest> quest = new DBEntry<>(questId, QuestDatabase.INSTANCE.getValue(questId));
+    private QuestSearchEntry createQuestSearchEntry(Map.Entry<UUID, IQuestLineEntry> iQuestLineEntryDBEntry, Map.Entry<UUID, IQuestLine> iQuestLineDBEntry) {
+        UUID questId = iQuestLineEntryDBEntry.getKey();
+        Map.Entry<UUID, IQuest> quest = Maps.immutableEntry(questId, QuestDatabase.INSTANCE.get(questId));
         return new QuestSearchEntry(quest, iQuestLineDBEntry);
     }
 
@@ -72,17 +70,17 @@ public class CanvasQuestSearch extends CanvasSearch<QuestSearchEntry, QuestSearc
                 results.add(entry);
             }
         } else if (
-                // quest id
-                StringUtils.containsIgnoreCase(String.valueOf(entry.getQuest().getID()), query)
+            // quest id
+            StringUtils.containsIgnoreCase(String.valueOf(entry.getQuest().getKey()), query)
 
                 // quest title
                 || StringUtils.containsIgnoreCase(value.getProperty(NativeProps.NAME), query)
-                || StringUtils.containsIgnoreCase(QuestTranslation.translate(value.getProperty(NativeProps.NAME)), query)
+                || StringUtils.containsIgnoreCase(QuestTranslation.translateQuestName(entry.getQuest()), query)
 
                 // quest description
                 || StringUtils.containsIgnoreCase(value.getProperty(NativeProps.DESC), query)
-                || StringUtils.containsIgnoreCase(QuestTranslation.translate(value.getProperty(NativeProps.DESC)), query)) {
-
+                || StringUtils.containsIgnoreCase(QuestTranslation.translateQuestDescription(entry.getQuest()), query)
+        ) {
             results.add(entry);
         } else {
             // task-specific search text
@@ -101,8 +99,8 @@ public class CanvasQuestSearch extends CanvasSearch<QuestSearchEntry, QuestSearc
     protected boolean addResult(QuestSearchEntry entry, int index, int cachedWidth) {
         PanelButtonCustom buttonContainer = createContainerButton(entry, index, cachedWidth);
 
-        addTextBox(cachedWidth, buttonContainer, 56, 6, entry.getQuestLineEntry().getValue().getProperty(NativeProps.NAME));
-        addTextBox(cachedWidth, buttonContainer, 36, 20, entry.getQuest().getValue().getProperty(NativeProps.NAME));
+        addTextBox(cachedWidth, buttonContainer, 56, 6, QuestTranslation.translateQuestLineName(entry.getQuestLineEntry()));
+        addTextBox(cachedWidth, buttonContainer, 36, 20, QuestTranslation.translateQuestName(entry.getQuest()));
 
         return true;
     }

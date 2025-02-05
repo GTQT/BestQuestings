@@ -28,21 +28,76 @@ import java.io.FileFilter;
 import java.io.FileInputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map.Entry;
+import java.util.UUID;
 import java.util.concurrent.Future;
 import java.util.function.Function;
 
 public class HQMQuestImporter implements IImporter {
     public static final HQMQuestImporter INSTANCE = new HQMQuestImporter();
     private static final FileFilter FILTER = new FileExtensionFilter(".json");
+    private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
+    private static final HashMap<String, Function<JsonObject, ITask[]>> taskConverters = new HashMap<>();
+    private static final HashMap<String, Function<JsonElement, IReward[]>> rewardConverters = new HashMap<>();
 
-    private static HashMap<String, Function<JsonObject, ITask[]>> taskConverters = new HashMap<>();
-    private static HashMap<String, Function<JsonElement, IReward[]>> rewardConverters = new HashMap<>();
+    static {
+        taskConverters.put("DETECT", new HQMTaskDetect(false)::convertTask);
+        taskConverters.put("CONSUME", new HQMTaskDetect(true)::convertTask);
+        taskConverters.put("CONSUME_QDS", new HQMTaskDetect(true)::convertTask);
+        taskConverters.put("KILL", new HQMTaskKill()::convertTask);
+        taskConverters.put("LOCATION", new HQMTaskLocation()::convertTask);
+        taskConverters.put("CRAFT", new HQMTaskCraft()::convertTask);
+        taskConverters.put("TAME", new HQMTaskTame()::convertTask);
+        taskConverters.put("ADVANCEMENT", new HQMTaskAdvancement()::convertTask);
+        taskConverters.put("BLOCK_BREAK", new HQMTaskBlockBreak()::convertTask);
+        taskConverters.put("BLOCK_PLACE", new HQMTaskBlockPlace()::convertTask);
+        taskConverters.put("REPUTATION", new HQMTaskReputaion()::convertTask);
+
+        rewardConverters.put("reward", new HQMRewardStandard()::convertReward);
+        rewardConverters.put("rewardchoice", new HQMRewardChoice()::convertReward);
+        rewardConverters.put("reputationrewards", new HQMRewardReputation()::convertReward);
+        rewardConverters.put("commandrewards", new HQMRewardCommand()::convertReward);
+    }
 
     public HashMap<String, HQMRep> reputations = new HashMap<>();
+    private final HashMap<String, IQuest> idMap = new HashMap<>(); // Use this to remap old IDs to new ones
 
-    private HashMap<String, IQuest> idMap = new HashMap<>(); // Use this to remap old IDs to new ones
+    private static JsonArray ReadArrayFromFile(File file) {
+        Future<JsonArray> task = BQThreadedIO.INSTANCE.enqueue(() -> {
+            if (file == null || !file.exists()) {
+                return new JsonArray();
+            }
+
+            try (InputStreamReader fr = new InputStreamReader(new FileInputStream(file), StandardCharsets.UTF_8)) {
+                return GSON.fromJson(fr, JsonArray.class);
+            } catch (Exception e) {
+                QuestingAPI.getLogger().log(Level.ERROR, "An error occured while loading JSON from file:", e);
+
+                int i = 0;
+                File bkup = new File(file.getParent(), "malformed_" + file.getName() + i + ".json");
+
+                while (bkup.exists()) {
+                    i++;
+                    bkup = new File(file.getParent(), "malformed_" + file.getName() + i + ".json");
+                }
+
+                QuestingAPI.getLogger().log(Level.ERROR, "Creating backup at: " + bkup.getAbsolutePath());
+                JsonHelper.CopyPaste(file, bkup);
+
+                return new JsonArray(); // Just a safety measure against NPEs
+            }
+        });
+
+        try {
+            return task.get(); // Wait for other scheduled file ops to finish
+        } catch (Exception e) {
+            QuestingAPI.getLogger().error("Unable to read from file " + file, e);
+            return new JsonArray();
+        }
+    }
 
     @Override
     public FileFilter getFileFilter() {
@@ -82,42 +137,6 @@ public class HQMQuestImporter implements IImporter {
         }
     }
 
-    private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
-
-    private static JsonArray ReadArrayFromFile(File file) {
-        Future<JsonArray> task = BQThreadedIO.INSTANCE.enqueue(() -> {
-            if (file == null || !file.exists()) {
-                return new JsonArray();
-            }
-
-            try (InputStreamReader fr = new InputStreamReader(new FileInputStream(file), StandardCharsets.UTF_8)) {
-                return GSON.fromJson(fr, JsonArray.class);
-            } catch (Exception e) {
-                QuestingAPI.getLogger().log(Level.ERROR, "An error occured while loading JSON from file:", e);
-
-                int i = 0;
-                File bkup = new File(file.getParent(), "malformed_" + file.getName() + i + ".json");
-
-                while (bkup.exists()) {
-                    i++;
-                    bkup = new File(file.getParent(), "malformed_" + file.getName() + i + ".json");
-                }
-
-                QuestingAPI.getLogger().log(Level.ERROR, "Creating backup at: " + bkup.getAbsolutePath());
-                JsonHelper.CopyPaste(file, bkup);
-
-                return new JsonArray(); // Just a safety measure against NPEs
-            }
-        });
-
-        try {
-            return task.get(); // Wait for other scheduled file ops to finish
-        } catch (Exception e) {
-            QuestingAPI.getLogger().error("Unable to read from file " + file, e);
-            return new JsonArray();
-        }
-    }
-
     private void LoadReputations(JsonArray jsonRoot) {
         if (jsonRoot == null || jsonRoot.size() <= 0) return;
 
@@ -131,7 +150,7 @@ public class HQMQuestImporter implements IImporter {
             if (jRep.has("Name")) repName = JsonHelper.GetString(jRep, "Name", repName);
             if (jRep.has("name")) repName = JsonHelper.GetString(jRep, "name", repName);
 
-            String repId = "" + (++i);
+            String repId = String.valueOf(++i);
             if (jRep.has("Id")) repId = JsonHelper.GetNumber(jRep, "Id", i).toString();
             if (jRep.has("id")) repId = JsonHelper.GetString(jRep, "id", repId);
 
@@ -166,21 +185,14 @@ public class HQMQuestImporter implements IImporter {
         if (idMap.containsKey(oldID)) {
             return idMap.get(oldID);
         } else {
-            int newID;
-            try {
-                newID = (int) (UUID.fromString(oldID).getMostSignificantBits() & 0x7fff_ffff);
-                if (qdb.getValue(newID) != null) newID = qdb.nextID();
-            } catch (Exception e) {
-                newID = qdb.nextID();
-            }
-            IQuest quest = qdb.createNew(newID);
+            IQuest quest = qdb.createNew(qdb.generateKey());
             idMap.put(oldID, quest);
             return quest;
         }
     }
 
     private void ImportQuestLine(IQuestDatabase questDB, IQuestLineDatabase lineDB, JsonObject json) {
-        IQuestLine questLine = lineDB.createNew(lineDB.nextID());
+        IQuestLine questLine = lineDB.createNew(lineDB.generateKey());
         questLine.setProperty(NativeProps.NAME, JsonHelper.GetString(json, "name", "HQM Quest Line"));
         questLine.setProperty(NativeProps.DESC, JsonHelper.GetString(json, "description", "No description"));
 
@@ -249,7 +261,7 @@ public class HQMQuestImporter implements IImporter {
                 }
 
                 IQuest preReq = GetNewQuest(id, questDB);
-                addReq(quest, questDB.getID(preReq));
+                addReq(quest, questDB.lookupKey(preReq));
             }
 
             for (JsonElement er : JsonHelper.GetArray(jQuest, "optionlinks")) {
@@ -268,7 +280,7 @@ public class HQMQuestImporter implements IImporter {
                 }
 
                 IQuest preReq = GetNewQuest(id, questDB);
-                addReq(quest, questDB.getID(preReq));
+                addReq(quest, questDB.lookupKey(preReq));
             }
 
             for (JsonElement jt : JsonHelper.GetArray(jQuest, "tasks")) {
@@ -309,14 +321,14 @@ public class HQMQuestImporter implements IImporter {
                 }
             }
 
-            if (questLine.getValue(questDB.getID(quest)) != null) {
+            if (questLine.get(questDB.lookupKey(quest)) != null) {
                 BetterQuesting.logger.log(Level.WARN, "Tried to add duplicate quest " + quest + " to quest line " + questLine.getUnlocalisedName());
             } else {
                 final int qleX = JsonHelper.GetNumber(jQuest, "x", 0).intValue();
                 final int qleY = JsonHelper.GetNumber(jQuest, "y", 0).intValue();
                 final boolean bigIcon = JsonHelper.GetBoolean(jQuest, "bigicon", false);
 
-                IQuestLineEntry qle = questLine.createNew(questDB.getID(quest));
+                IQuestLineEntry qle = questLine.createNew(questDB.lookupKey(quest));
                 int size = bigIcon ? 32 : 24;
                 qle.setSize(size, size);
                 qle.setPosition(qleX, qleY);
@@ -324,35 +336,7 @@ public class HQMQuestImporter implements IImporter {
         }
     }
 
-    private boolean containsReq(IQuest quest, int id) {
-        for (int reqID : quest.getRequirements()) if (id == reqID) return true;
-        return false;
-    }
-
-    private void addReq(IQuest quest, int id) {
-        if (containsReq(quest, id)) return;
-        int[] orig = quest.getRequirements();
-        int[] added = Arrays.copyOf(orig, orig.length + 1);
-        added[orig.length] = id;
-        quest.setRequirements(added);
-    }
-
-    static {
-        taskConverters.put("DETECT", new HQMTaskDetect(false)::convertTask);
-        taskConverters.put("CONSUME", new HQMTaskDetect(true)::convertTask);
-        taskConverters.put("CONSUME_QDS", new HQMTaskDetect(true)::convertTask);
-        taskConverters.put("KILL", new HQMTaskKill()::convertTask);
-        taskConverters.put("LOCATION", new HQMTaskLocation()::convertTask);
-        taskConverters.put("CRAFT", new HQMTaskCraft()::convertTask);
-        taskConverters.put("TAME", new HQMTaskTame()::convertTask);
-        taskConverters.put("ADVANCEMENT", new HQMTaskAdvancement()::convertTask);
-        taskConverters.put("BLOCK_BREAK", new HQMTaskBlockBreak()::convertTask);
-        taskConverters.put("BLOCK_PLACE", new HQMTaskBlockPlace()::convertTask);
-        taskConverters.put("REPUTATION", new HQMTaskReputaion()::convertTask);
-
-        rewardConverters.put("reward", new HQMRewardStandard()::convertReward);
-        rewardConverters.put("rewardchoice", new HQMRewardChoice()::convertReward);
-        rewardConverters.put("reputationrewards", new HQMRewardReputation()::convertReward);
-        rewardConverters.put("commandrewards", new HQMRewardCommand()::convertReward);
+    private void addReq(IQuest quest, UUID id) {
+        quest.getRequirements().add(id);
     }
 }

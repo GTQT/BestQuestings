@@ -106,7 +106,7 @@ public class GuiItemSelection extends GuiScreenCanvas implements IPEventListener
         txMulti.setColor(PresetColor.TEXT_MAIN.getColor());
         cvTopLeft.addPanel(txMulti);
 
-        fieldSize = new PanelTextField<>(new GuiTransform(GuiAlign.TOP_EDGE, new GuiPadding(52, 16, 0, -32), 0), itemStack == null ? "1" : ("" + itemStack.stackSize), FieldFilterNumber.INT);
+        fieldSize = new PanelTextField<>(new GuiTransform(GuiAlign.TOP_EDGE, new GuiPadding(52, 16, 0, -32), 0), itemStack == null ? "1" : (String.valueOf(itemStack.stackSize)), FieldFilterNumber.INT);
         cvTopLeft.addPanel(fieldSize);
         fieldSize.setCallback(value -> {
             if (itemStack != null) itemStack.stackSize = value;
@@ -160,7 +160,8 @@ public class GuiItemSelection extends GuiScreenCanvas implements IPEventListener
             ItemStack tmp = inventory.getStackInSlot(i + 9);
             BigItemStack invoStack = tmp.isEmpty() ? bigEmpty : new BigItemStack(tmp);
 
-            cvBottomLeft.addPanel(new PanelItemSlot(new GuiTransform(GuiAlign.TOP_LEFT, x, y, slotSize, slotSize, 0), 1, invoStack, true).setCallback(c -> {}));
+            cvBottomLeft.addPanel(new PanelItemSlot(new GuiTransform(GuiAlign.TOP_LEFT, x, y, slotSize, slotSize, 0), 1, invoStack, true).setCallback(c -> {
+            }));
 
         }
 
@@ -171,7 +172,8 @@ public class GuiItemSelection extends GuiScreenCanvas implements IPEventListener
             ItemStack tmp = inventory.getStackInSlot(i);
             BigItemStack invoStack = tmp.isEmpty() ? bigEmpty : new BigItemStack(tmp);
 
-            cvBottomLeft.addPanel(new PanelItemSlot(new GuiTransform(GuiAlign.TOP_LEFT, x, 20 + (3 * slotSize), slotSize, slotSize, 0), 1, invoStack, true).setCallback(c -> {}));
+            cvBottomLeft.addPanel(new PanelItemSlot(new GuiTransform(GuiAlign.TOP_LEFT, x, 20 + (3 * slotSize), slotSize, slotSize, 0), 1, invoStack, true).setCallback(c -> {
+            }));
         }
 
         // === DIVIDERS ===
@@ -209,7 +211,7 @@ public class GuiItemSelection extends GuiScreenCanvas implements IPEventListener
                 itemStack = tmp.copy();
                 itemPreview.setStoredValue(itemStack);
                 btnOre.setStoredValue(-1).setText("Ore: NONE");
-                fieldSize.setText("" + itemStack.stackSize);
+                fieldSize.setText(String.valueOf(itemStack.stackSize));
             }
         } else if (btn.getButtonID() == 2 && btn instanceof PanelButtonStorage && itemStack != null && !itemStack.getBaseStack().isEmpty()) {
             int[] oreIds = OreDictionary.getOreIDs(itemStack.getBaseStack());

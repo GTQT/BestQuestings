@@ -2,24 +2,21 @@ package betterquesting.api2.client.gui.events.types;
 
 import betterquesting.api2.client.gui.events.PanelEvent;
 
-import java.util.Collection;
-import java.util.Collections;
-import java.util.Set;
-import java.util.TreeSet;
+import java.util.*;
 
 // Use whenever one or more quests change
 public class PEventQuest extends PanelEvent {
-    private final Set<Integer> questIDs;
+    private final Set<UUID> questIDs;
 
-    public PEventQuest(int questID) {
+    public PEventQuest(UUID questID) {
         this.questIDs = Collections.singleton(questID);
     }
 
-    public PEventQuest(Collection<Integer> questIDs) {
+    public PEventQuest(Collection<UUID> questIDs) {
         this.questIDs = Collections.unmodifiableSet(new TreeSet<>(questIDs));
     }
 
-    public Set<Integer> getQuestID() {
+    public Set<UUID> getQuestID() {
         return this.questIDs;
     }
 

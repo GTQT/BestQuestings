@@ -6,7 +6,7 @@ import net.minecraft.network.play.server.SPacketSetExperience;
 
 public class XPHelper {
     // Pre-calculated XP levels at 1M intervals for speed searching
-    private static long[] QUICK_XP = new long[2147];
+    private static final long[] QUICK_XP = new long[2147];
 
     static {
         for (int i = 0; i < QUICK_XP.length; i++) {

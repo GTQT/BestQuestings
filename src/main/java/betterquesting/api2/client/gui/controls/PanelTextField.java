@@ -22,34 +22,28 @@ import java.util.List;
 
 public class PanelTextField<T> implements IGuiPanel {
     private final IGuiRect transform;
+    private final IFieldFilter<T> filter;
     private boolean enabled = true;
-
-    private IGuiTexture[] texState = new IGuiTexture[3];
-    private IGuiColor[] colStates = new IGuiColor[3];
+    private final IGuiTexture[] texState = new IGuiTexture[3];
+    private final IGuiColor[] colStates = new IGuiColor[3];
     private IGuiColor colHighlight;
     private IGuiColor colWatermark;
-
     private boolean lockFocus = false;
     private boolean isFocused = false;
     private boolean isActive = true;
     private boolean canWrap = false;
     private int maxLength = 32;
-
     private String text;
     private String watermark = "";
-
     private int selectStart = 0;
     private int selectEnd = 0; // WARNING: Selection end can be before selection start!
     private boolean dragging = false;
-    private GuiRectangle cursorLine = new GuiRectangle(4, 4, 1, 8);
-
+    private final GuiRectangle cursorLine = new GuiRectangle(4, 4, 1, 8);
     // Yep... we're supporting this without a scrolling canvas (we don't need the zooming and mouse dragging but the scrolling bounds change much more often)
     private IValueIO<Float> scrollX;
     private IValueIO<Float> scrollY;
     private int scrollWidth = 0;
     private int scrollHeight = 0;
-
-    private final IFieldFilter<T> filter;
     private ICallback<T> callback;
 
     public PanelTextField(IGuiRect rect, String text, IFieldFilter<T> filter) {
@@ -134,14 +128,6 @@ public class PanelTextField<T> implements IGuiPanel {
         return (int) (scrollWidth * scrollX.readValue());
     }
 
-    public int getScrollY() {
-        if (scrollHeight <= 0) {
-            return 0;
-        }
-
-        return (int) (scrollHeight * scrollY.readValue());
-    }
-
     public void setScrollX(int value) {
         if (scrollWidth <= 0) {
             scrollX.writeValue(0F);
@@ -149,6 +135,14 @@ public class PanelTextField<T> implements IGuiPanel {
         }
 
         scrollX.writeValue(MathHelper.clamp(value, 0, scrollWidth) / (float) scrollWidth);
+    }
+
+    public int getScrollY() {
+        if (scrollHeight <= 0) {
+            return 0;
+        }
+
+        return (int) (scrollHeight * scrollY.readValue());
     }
 
     public void setScrollY(int value) {
@@ -160,12 +154,12 @@ public class PanelTextField<T> implements IGuiPanel {
         scrollY.writeValue(MathHelper.clamp(value, 0, scrollHeight) / (float) scrollHeight);
     }
 
-    public void setActive(boolean state) {
-        this.isActive = state;
-    }
-
     public boolean isActive() {
         return this.isActive;
+    }
+
+    public void setActive(boolean state) {
+        this.isActive = state;
     }
 
     public boolean isFocused() {
@@ -600,13 +594,13 @@ public class PanelTextField<T> implements IGuiPanel {
     }
 
     @Override
-    public void setEnabled(boolean state) {
-        this.enabled = state;
+    public boolean isEnabled() {
+        return this.enabled;
     }
 
     @Override
-    public boolean isEnabled() {
-        return this.enabled;
+    public void setEnabled(boolean state) {
+        this.enabled = state;
     }
 
     @Override

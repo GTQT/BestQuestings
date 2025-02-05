@@ -18,11 +18,9 @@ public class ItemTexture implements IGuiTexture {
     private final BigItemStack stack;
     private final boolean showCount;
     private final boolean keepAspect;
-
-    private float zDepth = 16F;
-
     // Dummy value
     private final IGuiRect bounds = new GuiRectangle(0, 0, 16, 16);
+    private float zDepth = 16F;
 
     public ItemTexture(BigItemStack stack) {
         this(stack, false, true);
@@ -70,7 +68,7 @@ public class ItemTexture implements IGuiTexture {
         GlStateManager.scale(sx, sy, 1F);
         color.applyGlColor();
 
-        RenderUtils.RenderItemStack(Minecraft.getMinecraft(), stack.getBaseStack(), 0, 0, zDepth, (showCount && stack.stackSize > 1) ? ("" + stack.stackSize) : "", 0xFFFFFFFF);
+        RenderUtils.RenderItemStack(Minecraft.getMinecraft(), stack.getBaseStack(), 0, 0, zDepth, (showCount && stack.stackSize > 1) ? (String.valueOf(stack.stackSize)) : "", 0xFFFFFFFF);
 
         GlStateManager.popMatrix();
     }

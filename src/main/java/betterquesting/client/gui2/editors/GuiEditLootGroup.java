@@ -32,15 +32,13 @@ import java.text.DecimalFormat;
 import java.util.List;
 
 public class GuiEditLootGroup extends GuiScreenCanvas implements IVolatileScreen {
+    private final DecimalFormat numFormat = new DecimalFormat("0.##");
     private LootGroup selGroup;
     private int selectedID = -1;
-
     private CanvasScrolling lootList;
     private PanelTextField<String> fieldName;
     private PanelTextField<Integer> fieldWeight;
     private PanelTextBox textWeight;
-
-    private final DecimalFormat numFormat = new DecimalFormat("0.##");
 
     // TODO: Rework this entire editor's means of sending data to the server!
 
@@ -97,7 +95,7 @@ public class GuiEditLootGroup extends GuiScreenCanvas implements IVolatileScreen
 
         cvRight.addPanel(new PanelTextBox(new GuiTransform(GuiAlign.TOP_EDGE, new GuiPadding(0, 36, 0, -48), 0), QuestTranslation.translate("bq_standard.gui.weight")).setColor(PresetColor.TEXT_MAIN.getColor()));
 
-        fieldWeight = new PanelTextField<>(new GuiTransform(new Vector4f(0F, 0F, 0.5F, 0F), new GuiPadding(0, 48, 0, -64), 0), "" + (selGroup != null ? selGroup.weight : 1), FieldFilterNumber.INT);
+        fieldWeight = new PanelTextField<>(new GuiTransform(new Vector4f(0F, 0F, 0.5F, 0F), new GuiPadding(0, 48, 0, -64), 0), String.valueOf(selGroup != null ? selGroup.weight : 1), FieldFilterNumber.INT);
         fieldWeight.setCallback(value ->
         {
             if (selGroup == null) return;
@@ -195,7 +193,7 @@ public class GuiEditLootGroup extends GuiScreenCanvas implements IVolatileScreen
                 selectedID = value.getID();
                 selGroup = value.getValue();
                 fieldName.setText(selGroup.name);
-                fieldWeight.setText("" + selGroup.weight);
+                fieldWeight.setText(String.valueOf(selGroup.weight));
 
                 int totalWeight = LootRegistry.INSTANCE.getTotalWeight();
                 float chance = selGroup.weight / (float) totalWeight * 100F;

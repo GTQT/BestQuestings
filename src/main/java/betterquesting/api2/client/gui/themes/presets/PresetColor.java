@@ -49,14 +49,6 @@ public enum PresetColor {
         this.key = new ResourceLocation(ModReference.MODID, key);
     }
 
-    public IGuiColor getColor() {
-        return ThemeRegistry.INSTANCE.getColor(this.key);
-    }
-
-    public ResourceLocation getKey() {
-        return this.key;
-    }
-
     public static void registerColors(IThemeRegistry reg) {
         reg.setDefaultColor(TEXT_HEADER.key, new GuiColorStatic(0, 0, 0, 255)); // Headers
         reg.setDefaultColor(TEXT_MAIN.key, new GuiColorStatic(0, 0, 0, 255)); // Paragraphs
@@ -101,5 +93,13 @@ public enum PresetColor {
      */
     public static int quickMix(int red, int green, int blue, int alpha) {
         return ((alpha & 255) << 24) | ((red & 255) << 16) | ((green & 255) << 8) | (blue & 255);
+    }
+
+    public IGuiColor getColor() {
+        return ThemeRegistry.INSTANCE.getColor(this.key);
+    }
+
+    public ResourceLocation getKey() {
+        return this.key;
     }
 }

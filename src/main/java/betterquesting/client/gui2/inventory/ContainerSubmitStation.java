@@ -8,7 +8,7 @@ import net.minecraft.inventory.Slot;
 import net.minecraft.item.ItemStack;
 
 public class ContainerSubmitStation extends Container {
-    private TileSubmitStation tile;
+    private final TileSubmitStation tile;
 
     public ContainerSubmitStation(InventoryPlayer inventory, TileSubmitStation tile) {
         this.tile = tile;

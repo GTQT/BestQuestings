@@ -24,36 +24,6 @@ public class MCLinkAPI {
 
     private static String userAgent = null;
 
-    @Nonnull
-    public JsonObject getApiStatus() {
-        return new JsonObject();
-    }
-
-    public void updateSupporterInfo(@Nonnull Collection<UUID> playerIDs, Collection<String> tokens) {
-        JsonObject jsonBase = new JsonObject();
-
-        JsonObject jsonTokens = new JsonObject();
-
-        JsonObject jsonServices = new JsonObject();
-        JsonArray teirArgs = new JsonArray();
-        teirArgs.add(0); // Just report any tier for now
-        jsonServices.add("Patreon", teirArgs);
-        jsonServices.add("Twitch", new JsonArray());
-
-        tokens.forEach((key) -> jsonTokens.add(key, jsonServices));
-        jsonBase.add("tokens", jsonTokens);
-
-        JsonArray jsonIds = new JsonArray();
-        playerIDs.forEach((id) -> jsonIds.add(id.toString()));
-        jsonBase.add("uuids", jsonIds);
-
-        try {
-            JsonElement response = sendJsonPost(McLinkEndpoint.API_AUTH.URL, jsonBase);
-        } catch (Exception e) {
-            BetterQuesting.logger.error("Unable to lookup supporter info", e);
-        }
-    }
-
     private static JsonElement sendJsonPost(String endpoint, JsonElement json) throws IOException {
         if (userAgent == null) setupMetadata();
 
@@ -108,5 +78,35 @@ public class MCLinkAPI {
         String os = System.getProperty("os.name") + ' ' + System.getProperty("os.arch") + ' ' + System.getProperty("os.version");
         sb.append(os.replaceAll("[;()\n\r]", ""));
         userAgent = sb.append(')').toString();
+    }
+
+    @Nonnull
+    public JsonObject getApiStatus() {
+        return new JsonObject();
+    }
+
+    public void updateSupporterInfo(@Nonnull Collection<UUID> playerIDs, Collection<String> tokens) {
+        JsonObject jsonBase = new JsonObject();
+
+        JsonObject jsonTokens = new JsonObject();
+
+        JsonObject jsonServices = new JsonObject();
+        JsonArray teirArgs = new JsonArray();
+        teirArgs.add(0); // Just report any tier for now
+        jsonServices.add("Patreon", teirArgs);
+        jsonServices.add("Twitch", new JsonArray());
+
+        tokens.forEach((key) -> jsonTokens.add(key, jsonServices));
+        jsonBase.add("tokens", jsonTokens);
+
+        JsonArray jsonIds = new JsonArray();
+        playerIDs.forEach((id) -> jsonIds.add(id.toString()));
+        jsonBase.add("uuids", jsonIds);
+
+        try {
+            JsonElement response = sendJsonPost(McLinkEndpoint.API_AUTH.URL, jsonBase);
+        } catch (Exception e) {
+            BetterQuesting.logger.error("Unable to lookup supporter info", e);
+        }
     }
 }

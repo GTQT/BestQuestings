@@ -24,9 +24,9 @@ import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
 
 public class SupporterAPI {
-    private static Gson GSON = new GsonBuilder().create(); // No pretty print
     private static final String charSet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuv0123456789";
     private static final Random rand = new Random();
+    private static final Gson GSON = new GsonBuilder().create(); // No pretty print
 
     @Nullable
     public static JsonObject readManifest(File loc) {

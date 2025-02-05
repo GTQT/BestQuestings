@@ -7,6 +7,9 @@ public interface IQuestLineEntry extends INBTSaveLoad<NBTTagCompound> {
     @Deprecated
     int getSize();
 
+    @Deprecated
+    void setSize(int size);
+
     int getSizeX();
 
     int getSizeY();
@@ -16,9 +19,6 @@ public interface IQuestLineEntry extends INBTSaveLoad<NBTTagCompound> {
     int getPosY();
 
     void setPosition(int posX, int posY);
-
-    @Deprecated
-    void setSize(int size);
 
     void setSize(int sizeX, int sizeY);
 }

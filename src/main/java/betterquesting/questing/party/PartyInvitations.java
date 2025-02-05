@@ -37,7 +37,7 @@ public class PartyInvitations implements INBTPartial<NBTTagList, UUID> {
 
     public synchronized boolean acceptInvite(@Nonnull UUID uuid, int id) {
         HashMap<Integer, Long> userInvites = invites.get(uuid);
-        if (userInvites == null || userInvites.size() <= 0) return false;
+        if (userInvites == null || userInvites.isEmpty()) return false;
 
         long timestamp = userInvites.get(id);
         IParty party = PartyManager.INSTANCE.getValue(id);
@@ -46,21 +46,21 @@ public class PartyInvitations implements INBTPartial<NBTTagList, UUID> {
         if (valid && party != null) party.setStatus(uuid, EnumPartyStatus.MEMBER);
 
         userInvites.remove(id); // We still remove it regardless of validity
-        if (userInvites.size() <= 0) invites.remove(uuid);
+        if (userInvites.isEmpty()) invites.remove(uuid);
 
         return valid;
     }
 
     public synchronized void revokeInvites(@Nonnull UUID uuid, int... ids) {
         HashMap<Integer, Long> userInvites = invites.get(uuid);
-        if (userInvites == null || userInvites.size() <= 0) return;
+        if (userInvites == null || userInvites.isEmpty()) return;
         for (int i : ids) userInvites.remove(i);
-        if (userInvites.size() <= 0) invites.remove(uuid);
+        if (userInvites.isEmpty()) invites.remove(uuid);
     }
 
     public synchronized List<Entry<Integer, Long>> getPartyInvites(@Nonnull UUID uuid) {
         HashMap<Integer, Long> userInvites = invites.get(uuid);
-        if (userInvites == null || userInvites.size() <= 0) return Collections.emptyList();
+        if (userInvites == null || userInvites.isEmpty()) return Collections.emptyList();
 
         List<Entry<Integer, Long>> list = new ArrayList<>(userInvites.entrySet());
         list.sort(Comparator.comparing(Entry::getValue)); // Sort by expiry time
@@ -94,7 +94,7 @@ public class PartyInvitations implements INBTPartial<NBTTagList, UUID> {
                 for (int i = 0; i < revoked.size(); i++) revAry[i] = revoked.get(i);
                 NetInviteSync.sendRevoked(player, revAry); // Normally I avoid including networking calls into the database...
             }
-            if (userInvites.getValue().size() <= 0) iterA.remove();
+            if (userInvites.getValue().isEmpty()) iterA.remove();
         }
     }
 

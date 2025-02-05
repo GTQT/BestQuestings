@@ -1,0 +1,18 @@
+[
+  {
+    "modid": "betterquesting",
+    "name": "Better Questing Unofficial Unofficial",
+    "description": "A further continuation of the popular continuation of of the popular Questing Mod, Better Questing",
+    "version": "${version}",
+    "mcversion": "${mcVersion}",
+    "url": "https://github.com/SymmetricDevs/BetterQuesting",
+    "updateUrl": "",
+    "authorList": [
+      "Funwayguy", "CleanroomMC team", "Supersymmetry team"
+    ],
+    "credits": "Funwayguy for the original implementation, the GT:NH developers for many implemented features, and fonnymunkey for ideas from his BQ addon.",
+    "logoFile": "title.png",
+    "screenshots": [],
+    "dependencies": []
+  }
+]

@@ -13,6 +13,7 @@ import java.util.UUID;
  */
 public class QuestingAPI {
     private static final HashMap<ApiKey<?>, Object> apis = new HashMap<>();
+    private static Logger logger = null;
 
     public static <T> void registerAPI(ApiKey<T> key, T api) {
         if (key == null) {
@@ -51,8 +52,6 @@ public class QuestingAPI {
 
         return player.getGameProfile().getId();
     }
-
-    private static Logger logger = null;
 
     public static Logger getLogger() {
         if (logger == null) {
