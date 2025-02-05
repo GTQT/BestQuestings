@@ -34,13 +34,13 @@ public class CanvasEmpty implements IGuiCanvas {
     }
 
     @Override
-    public void setEnabled(boolean state) {
-        this.enabled = state;
+    public boolean isEnabled() {
+        return this.enabled;
     }
 
     @Override
-    public boolean isEnabled() {
-        return this.enabled;
+    public void setEnabled(boolean state) {
+        this.enabled = state;
     }
 
     @Override

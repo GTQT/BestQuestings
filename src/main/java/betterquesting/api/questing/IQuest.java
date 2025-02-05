@@ -14,6 +14,7 @@ import net.minecraft.nbt.NBTTagList;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Set;
 import java.util.UUID;
 
 public interface IQuest extends INBTSaveLoad<NBTTagCompound>, INBTProgress<NBTTagCompound>, IPropertyContainer {
@@ -59,15 +60,18 @@ public interface IQuest extends INBTSaveLoad<NBTTagCompound>, INBTProgress<NBTTa
 
     IDatabaseNBT<IReward, NBTTagList, NBTTagList> getRewards();
 
+    /**
+     * Returns a mutable set. Changes made to the returned set will be reflected in the quest!
+     */
     @Nonnull
-    int[] getRequirements();
+    Set<UUID> getRequirements();
 
-    void setRequirements(@Nonnull int[] req);
+    void setRequirements(@Nonnull Iterable<UUID> req);
 
     @Nonnull
-    RequirementType getRequirementType(int req);
+    RequirementType getRequirementType(UUID req);
 
-    void setRequirementType(int req, @Nonnull RequirementType kind);
+    void setRequirementType(UUID req, @Nonnull RequirementType kind);
 
 
     enum RequirementType {
@@ -75,12 +79,15 @@ public interface IQuest extends INBTSaveLoad<NBTTagCompound>, INBTProgress<NBTTa
         IMPLICIT(PresetIcon.ICON_VISIBILITY_IMPLICIT),
         HIDDEN(PresetIcon.ICON_VISIBILITY_HIDDEN);
 
-        private final PresetIcon icon;
-
         private static final RequirementType[] VALUES = values();
+        private final PresetIcon icon;
 
         RequirementType(PresetIcon icon) {
             this.icon = icon;
+        }
+
+        public static RequirementType from(byte id) {
+            return id >= 0 && id < VALUES.length ? VALUES[id] : NORMAL;
         }
 
         public byte id() {
@@ -93,10 +100,6 @@ public interface IQuest extends INBTSaveLoad<NBTTagCompound>, INBTProgress<NBTTa
 
         public RequirementType next() {
             return VALUES[(ordinal() + 1) % VALUES.length];
-        }
-
-        public static RequirementType from(byte id) {
-            return id >= 0 && id < VALUES.length ? VALUES[id] : NORMAL;
         }
     }
 }

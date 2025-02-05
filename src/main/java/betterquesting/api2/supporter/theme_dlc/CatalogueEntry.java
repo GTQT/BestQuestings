@@ -34,14 +34,6 @@ public class CatalogueEntry {
         this.subLink = subLink;
     }
 
-    public CatalogueEntry setRequirement(@Nonnull String token, @Nonnull String service, int amount, @Nonnull String subLink) {
-        this.token = token;
-        this.service = service;
-        this.subTier = amount;
-        this.subLink = subLink;
-        return this;
-    }
-
     public CatalogueEntry(@Nonnull JsonObject json) {
         this.author = JsonHelper.GetString(json, "author", "Unknown");
         this.name = JsonHelper.GetString(json, "themeName", "Untitled");
@@ -61,6 +53,14 @@ public class CatalogueEntry {
             if (!je.isJsonPrimitive() || !je.getAsJsonPrimitive().isString()) continue;
             reqThemes.add(je.getAsString());
         }
+    }
+
+    public CatalogueEntry setRequirement(@Nonnull String token, @Nonnull String service, int amount, @Nonnull String subLink) {
+        this.token = token;
+        this.service = service;
+        this.subTier = amount;
+        this.subLink = subLink;
+        return this;
     }
 
     public Future<File> downloadTheme() {

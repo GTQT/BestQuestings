@@ -19,6 +19,6 @@ public class GuiKey<T> {
 
     @Override
     public boolean equals(Object obj) {
-        return obj instanceof GuiKey && ((GuiKey) obj).ID.equals(ID);
+        return obj instanceof GuiKey && ((GuiKey<T>) obj).ID.equals(ID);
     }
 }

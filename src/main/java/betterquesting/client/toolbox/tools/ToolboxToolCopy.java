@@ -3,10 +3,10 @@ package betterquesting.client.toolbox.tools;
 import betterquesting.api.client.toolbox.IToolboxTool;
 import betterquesting.api.questing.IQuest;
 import betterquesting.api.questing.IQuestLine;
+import betterquesting.api.utils.NBTConverter;
 import betterquesting.api2.client.gui.controls.PanelButtonQuest;
 import betterquesting.api2.client.gui.misc.GuiRectangle;
 import betterquesting.api2.client.gui.panels.lists.CanvasQuestLine;
-import betterquesting.api2.storage.DBEntry;
 import betterquesting.client.gui2.editors.designer.PanelToolController;
 import betterquesting.client.toolbox.ToolboxTabMain;
 import betterquesting.network.handlers.NetChapterEdit;
@@ -14,6 +14,8 @@ import betterquesting.network.handlers.NetQuestEdit;
 import betterquesting.questing.QuestDatabase;
 import betterquesting.questing.QuestLineDatabase;
 import betterquesting.questing.QuestLineEntry;
+import com.google.common.collect.BiMap;
+import com.google.common.collect.HashBiMap;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.nbt.NBTTagList;
 import net.minecraft.util.NonNullList;
@@ -21,9 +23,20 @@ import net.minecraft.util.NonNullList;
 import java.util.*;
 
 public class ToolboxToolCopy implements IToolboxTool {
+    private final NonNullList<GrabEntry> grabList = NonNullList.create();
     private CanvasQuestLine gui = null;
 
-    private final NonNullList<GrabEntry> grabList = NonNullList.create();
+    private static Set<UUID> getNextIDs(int num) {
+        Set<UUID> nextIds = new HashSet<>();
+
+        while (nextIds.size() < num) {
+            // In the extremely unlikely event of a collision,
+            // we'll handle it automatically due to nextIds being a Set
+            nextIds.add(QuestDatabase.INSTANCE.generateKey());
+        }
+
+        return nextIds;
+    }
 
     @Override
     public void initTool(CanvasQuestLine gui) {
@@ -38,13 +51,13 @@ public class ToolboxToolCopy implements IToolboxTool {
 
     @Override
     public void refresh(CanvasQuestLine gui) {
-        if (grabList.size() <= 0) return;
+        if (grabList.isEmpty()) return;
 
         List<GrabEntry> tmp = new ArrayList<>();
 
         for (GrabEntry grab : grabList) {
             for (PanelButtonQuest btn : PanelToolController.selected) {
-                if (btn.getStoredValue().getID() == grab.btn.getStoredValue().getID()) {
+                if (btn.getStoredValue().getKey().equals(grab.btn.getStoredValue().getKey())) {
                     tmp.add(new GrabEntry(btn, grab.offX, grab.offY));
                     break;
                 }
@@ -117,39 +130,56 @@ public class ToolboxToolCopy implements IToolboxTool {
 
         // Pre-sync
         IQuestLine qLine = gui.getQuestLine();
-        int lID = QuestLineDatabase.INSTANCE.getID(qLine);
+        UUID lID = QuestLineDatabase.INSTANCE.lookupKey(qLine);
 
-        int[] nextIDs = getNextIDs(grabList.size());
-        HashMap<Integer, Integer> remappedIDs = new HashMap<>();
+        // Turn Set into List so that we can access by index.
+        List<UUID> nextIDs = new ArrayList<>(getNextIDs(grabList.size()));
+        BiMap<UUID, UUID> remappedIDs = HashBiMap.create(grabList.size());
 
-        for (int i = 0; i < grabList.size(); i++)
-            remappedIDs.put(grabList.get(i).btn.getStoredValue().getID(), nextIDs[i]);
+        for (int i = 0; i < grabList.size(); i++) {
+            remappedIDs.put(grabList.get(i).btn.getStoredValue().getKey(), nextIDs.get(i));
+        }
 
         NBTTagList qdList = new NBTTagList();
 
         for (int i = 0; i < grabList.size(); i++) {
             GrabEntry grab = grabList.get(i);
             IQuest quest = grab.btn.getStoredValue().getValue();
-            int qID = nextIDs[i];
+            UUID qID = nextIDs.get(i);
 
-            if (qLine.getValue(qID) == null)
-                qLine.add(qID, new QuestLineEntry(grab.btn.rect.x, grab.btn.rect.y, grab.btn.rect.w, grab.btn.rect.h));
+            if (qLine.get(qID) == null)
+                qLine.put(qID, new QuestLineEntry(grab.btn.rect.x, grab.btn.rect.y, grab.btn.rect.w, grab.btn.rect.h));
 
-            NBTTagCompound questTags = quest.writeToNBT(new NBTTagCompound(), true);
+            NBTTagCompound questTags = quest.writeToNBT(new NBTTagCompound());
 
-            int[] oldIDs = Arrays.copyOf(quest.getRequirements(), quest.getRequirements().length);
+            Set<UUID> reqs = new HashSet<>(quest.getRequirements());
 
-            for (int n = 0; n < oldIDs.length; n++) {
-                if (remappedIDs.containsKey(oldIDs[n])) {
-                    oldIDs[n] = remappedIDs.get(oldIDs[n]);
+            for (Map.Entry<UUID, UUID> entry : remappedIDs.entrySet()) {
+                if (reqs.contains(entry.getKey())) {
+                    reqs.remove(entry.getKey());
+                    reqs.add(entry.getValue());
                 }
             }
 
             // We can't tamper with the original so we change it in NBT post-write
-            questTags.setIntArray("preRequisites", oldIDs);
+            NBTTagList tagList = new NBTTagList();
+            for (UUID questID : reqs) {
+                NBTTagCompound tag = NBTConverter.UuidValueType.QUEST.writeId(questID);
+
+                // We need the pre-remapped ID so that we can look up the prerequisite type.
+                UUID oldID = remappedIDs.inverse().getOrDefault(questID, questID);
+                IQuest.RequirementType requirementType = quest.getRequirementType(oldID);
+                if (requirementType != IQuest.RequirementType.NORMAL) {
+                    tag.setByte("type", requirementType.id());
+                }
+
+                tagList.appendTag(tag);
+            }
+            questTags.setTag("preRequisites", tagList);
+
 
             NBTTagCompound tagEntry = new NBTTagCompound();
-            tagEntry.setInteger("questID", qID);
+            NBTConverter.UuidValueType.QUEST.writeId(qID, tagEntry);
             tagEntry.setTag("config", questTags);
             qdList.appendTag(tagEntry);
         }
@@ -166,22 +196,14 @@ public class ToolboxToolCopy implements IToolboxTool {
         NBTTagCompound chPayload = new NBTTagCompound();
         NBTTagList cdList = new NBTTagList();
         NBTTagCompound tagEntry = new NBTTagCompound();
-        tagEntry.setInteger("chapterID", lID);
-        tagEntry.setTag("config", qLine.writeToNBT(new NBTTagCompound(), null, true));
+        NBTConverter.UuidValueType.QUEST_LINE.writeId(lID, tagEntry);
+        tagEntry.setTag("config", qLine.writeToNBT(new NBTTagCompound(), null));
         cdList.appendTag(tagEntry);
         chPayload.setTag("data", cdList);
         chPayload.setInteger("action", 0);
         NetChapterEdit.sendEdit(chPayload);
 
         return true;
-    }
-
-    private int[] getNextIDs(int num) {
-        int[] nxtIDs = new int[num];
-        for (int i = 0; i < num; i++) {
-            nxtIDs[i] = QuestDatabase.INSTANCE.nextID();
-        }
-        return nxtIDs;
     }
 
     @Override

@@ -82,7 +82,7 @@ public class NetPartyAction {
                 break;
             }
             default: {
-                BetterQuesting.logger.log(Level.ERROR, "Invalid party action '" + action + "'. Full payload:\n" + message.getFirst().toString());
+                BetterQuesting.logger.log(Level.ERROR, "Invalid party action '" + action + "'. Full payload:\n" + message.getFirst());
             }
         }
     }

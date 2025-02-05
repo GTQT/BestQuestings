@@ -4,31 +4,27 @@ import betterquesting.api.questing.IQuest;
 import betterquesting.api.questing.rewards.IReward;
 import betterquesting.api2.client.gui.misc.IGuiRect;
 import betterquesting.api2.client.gui.panels.IGuiPanel;
-import betterquesting.api2.storage.DBEntry;
 import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.util.ResourceLocation;
 
+import java.util.Map;
+import java.util.UUID;
+
 public class RewardPlaceholder implements IReward {
     private NBTTagCompound nbtSaved = new NBTTagCompound();
-
-    public void setRewardConfigData(NBTTagCompound nbt) {
-        nbtSaved = nbt;
-    }
 
     public NBTTagCompound getRewardConfigData() {
         return nbtSaved;
     }
 
-    @Deprecated
-    @Override
-    public NBTTagCompound writeToNBT(NBTTagCompound nbt) {
-        return writeToNBT(nbt, false);
+    public void setRewardConfigData(NBTTagCompound nbt) {
+        nbtSaved = nbt;
     }
 
     @Override
-    public NBTTagCompound writeToNBT(NBTTagCompound nbt, boolean reduce) {
+    public NBTTagCompound writeToNBT(NBTTagCompound nbt) {
         nbt.setTag("orig_data", nbtSaved);
 
         return nbt;
@@ -50,21 +46,21 @@ public class RewardPlaceholder implements IReward {
     }
 
     @Override
-    public boolean canClaim(EntityPlayer player, DBEntry<IQuest> quest) {
+    public boolean canClaim(EntityPlayer player, Map.Entry<UUID, IQuest> quest) {
         return false;
     }
 
     @Override
-    public void claimReward(EntityPlayer player, DBEntry<IQuest> quest) {
+    public void claimReward(EntityPlayer player, Map.Entry<UUID, IQuest> quest) {
     }
 
     @Override
-    public IGuiPanel getRewardGui(IGuiRect rect, DBEntry<IQuest> quest) {
+    public IGuiPanel getRewardGui(IGuiRect rect, Map.Entry<UUID, IQuest> quest) {
         return null;
     }
 
     @Override
-    public GuiScreen getRewardEditor(GuiScreen parent, DBEntry<IQuest> quest) {
+    public GuiScreen getRewardEditor(GuiScreen parent, Map.Entry<UUID, IQuest> quest) {
         return null;
     }
 }

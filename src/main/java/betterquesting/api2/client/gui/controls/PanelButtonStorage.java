@@ -12,22 +12,22 @@ public class PanelButtonStorage<T> extends PanelButton {
         this.setStoredValue(value);
     }
 
+    public T getStoredValue() {
+        return stored;
+    }
+
     public PanelButtonStorage<T> setStoredValue(T value) {
         this.stored = value;
         return this;
     }
 
-    public T getStoredValue() {
-        return stored;
+    public ICallback<T> getCallback() {
+        return this.callback;
     }
 
     public PanelButtonStorage<T> setCallback(ICallback<T> callback) {
         this.callback = callback;
         return this;
-    }
-
-    public ICallback<T> getCallback() {
-        return this.callback;
     }
 
     @Override

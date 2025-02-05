@@ -1,17 +1,19 @@
 package betterquesting.api.questing;
 
 import betterquesting.api.properties.IPropertyContainer;
-import betterquesting.api2.storage.DBEntry;
-import betterquesting.api2.storage.IDatabase;
 import betterquesting.api2.storage.INBTPartial;
+import betterquesting.api2.storage.IUuidDatabase;
 import net.minecraft.nbt.NBTTagCompound;
 
-public interface IQuestLine extends IDatabase<IQuestLineEntry>, INBTPartial<NBTTagCompound, Integer>, IPropertyContainer {
-    IQuestLineEntry createNew(int id);
+import java.util.Map;
+import java.util.UUID;
+
+public interface IQuestLine extends IUuidDatabase<IQuestLineEntry>, INBTPartial<NBTTagCompound, UUID>, IPropertyContainer {
+    IQuestLineEntry createNew(UUID id);
 
     String getUnlocalisedName();
 
     String getUnlocalisedDescription();
 
-    DBEntry<IQuestLineEntry> getEntryAt(int x, int y);
+    Map.Entry<UUID, IQuestLineEntry> getEntryAt(int x, int y);
 }

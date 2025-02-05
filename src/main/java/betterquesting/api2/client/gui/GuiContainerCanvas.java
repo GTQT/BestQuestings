@@ -29,16 +29,16 @@ import java.util.concurrent.CopyOnWriteArrayList;
 
 // This will probably be rewritten at a later date once I reimplement Minecraft's inventory controls natively into their own isolated canvas elements
 public class GuiContainerCanvas extends GuiContainer implements IScene {
+    public final GuiScreen parent;
     private final List<IGuiPanel> guiPanels = new CopyOnWriteArrayList<>();
     private final GuiRectangle rootTransform = new GuiRectangle(0, 0, 0, 0, 0);
     private final GuiTransform transform = new GuiTransform(GuiAlign.FULL_BOX, new GuiPadding(16, 16, 16, 16), 0);
+    // Remembers the last mouse buttons states. Required to fire release events
+    private final boolean[] mBtnState = new boolean[3];
     private boolean enabled = true;
     private boolean useMargins = true;
     private boolean useDefaultBG = false;
     private boolean isVolatile = false;
-
-    public final GuiScreen parent;
-
     private IGuiPanel popup = null;
     //private IGuiPanel focused = null;
 
@@ -124,14 +124,14 @@ public class GuiContainerCanvas extends GuiContainer implements IScene {
     }
 
     @Override
-    public void setEnabled(boolean state) {
-        // Technically supported if you wanted something like a multiscreen where this isn't actually the root screen
-        this.enabled = state;
+    public boolean isEnabled() {
+        return this.enabled;
     }
 
     @Override
-    public boolean isEnabled() {
-        return this.enabled;
+    public void setEnabled(boolean state) {
+        // Technically supported if you wanted something like a multiscreen where this isn't actually the root screen
+        this.enabled = state;
     }
 
     @Override
@@ -163,9 +163,6 @@ public class GuiContainerCanvas extends GuiContainer implements IScene {
     @Deprecated
     public void actionPerformed(GuiButton button) {
     }
-
-    // Remembers the last mouse buttons states. Required to fire release events
-    private boolean[] mBtnState = new boolean[3];
 
     @Override
     public void handleMouseInput() throws IOException {

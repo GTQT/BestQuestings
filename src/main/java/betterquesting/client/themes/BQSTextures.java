@@ -26,14 +26,6 @@ public enum BQSTextures {
         this.key = new ResourceLocation(BetterQuesting.MODID_STD, key);
     }
 
-    public IGuiTexture getTexture() {
-        return QuestingAPI.getAPI(ApiReference.THEME_REG).getTexture(this.key);
-    }
-
-    public ResourceLocation getKey() {
-        return this.key;
-    }
-
     public static void registerTextures() {
         IThemeRegistry tReg = QuestingAPI.getAPI(ApiReference.THEME_REG);
         tReg.setDefaultTexture(LOOT_CHEST.key, new SimpleTexture(TX_UI_ELEMENTS, new GuiRectangle(0, 0, 128, 68)));
@@ -43,5 +35,13 @@ public enum BQSTextures {
         tReg.setDefaultTexture(HAND_RIGHT.key, new SimpleTexture(TX_UI_ELEMENTS, new GuiRectangle(16, 80, 16, 16)));
         tReg.setDefaultTexture(ATK_SYMB.key, new SimpleTexture(TX_UI_ELEMENTS, new GuiRectangle(32, 80, 16, 16)));
         tReg.setDefaultTexture(USE_SYMB.key, new SimpleTexture(TX_UI_ELEMENTS, new GuiRectangle(48, 80, 16, 16)));
+    }
+
+    public IGuiTexture getTexture() {
+        return QuestingAPI.getAPI(ApiReference.THEME_REG).getTexture(this.key);
+    }
+
+    public ResourceLocation getKey() {
+        return this.key;
     }
 }

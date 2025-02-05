@@ -105,7 +105,7 @@ public class GuiFluidSelection extends GuiScreenCanvas implements IPEventListene
         txMulti.setColor(PresetColor.TEXT_MAIN.getColor());
         cvTopLeft.addPanel(txMulti);
 
-        fieldSize = new PanelTextField<>(new GuiTransform(GuiAlign.TOP_EDGE, new GuiPadding(52, 16, 0, -32), 0), itemStack == null ? "1" : ("" + itemStack.amount), FieldFilterNumber.INT);
+        fieldSize = new PanelTextField<>(new GuiTransform(GuiAlign.TOP_EDGE, new GuiPadding(52, 16, 0, -32), 0), itemStack == null ? "1" : (String.valueOf(itemStack.amount)), FieldFilterNumber.INT);
         cvTopLeft.addPanel(fieldSize);
         fieldSize.setCallback(value -> {
             if (itemStack != null) itemStack.amount = value;
@@ -184,7 +184,7 @@ public class GuiFluidSelection extends GuiScreenCanvas implements IPEventListene
             if (fluid != null) {
                 itemStack = fluid.copy();
                 itemPreview.setStoredValue(itemStack);
-                fieldSize.setText("" + itemStack.amount);
+                fieldSize.setText(String.valueOf(itemStack.amount));
             }
         } else if (btn.getButtonID() == 2 && btn instanceof PanelButtonStorage) {
             BigItemStack tmp = ((PanelButtonStorage<BigItemStack>) btn).getStoredValue();
@@ -193,7 +193,7 @@ public class GuiFluidSelection extends GuiScreenCanvas implements IPEventListene
             if (fluid != null) {
                 itemStack = fluid.copy();
                 itemPreview.setStoredValue(itemStack);
-                fieldSize.setText("" + itemStack.amount);
+                fieldSize.setText(String.valueOf(itemStack.amount));
             }
         }
     }

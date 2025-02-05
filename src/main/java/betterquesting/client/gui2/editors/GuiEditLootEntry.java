@@ -30,18 +30,15 @@ import java.text.DecimalFormat;
 import java.util.List;
 
 public class GuiEditLootEntry extends GuiScreenCanvas {
-    private LootGroup lootGroup;
     private final int groupID;
-
+    private final DecimalFormat numFormat = new DecimalFormat("0.##");
+    private LootGroup lootGroup;
     private LootGroup.LootEntry selEntry;
     private int selectedID = -1;
-
     private CanvasScrolling lootList;
     private PanelTextBox fieldName;
     private PanelTextField<Integer> fieldWeight;
     private PanelTextBox textWeight;
-
-    private final DecimalFormat numFormat = new DecimalFormat("0.##");
 
     public GuiEditLootEntry(GuiScreen parent, LootGroup group) {
         super(parent);
@@ -93,7 +90,7 @@ public class GuiEditLootEntry extends GuiScreenCanvas {
 
         cvRight.addPanel(new PanelTextBox(new GuiTransform(GuiAlign.TOP_EDGE, new GuiPadding(0, 36, 0, -48), 0), QuestTranslation.translate("bq_standard.gui.weight")).setColor(PresetColor.TEXT_MAIN.getColor()));
 
-        fieldWeight = new PanelTextField<>(new GuiTransform(new Vector4f(0F, 0F, 0.5F, 0F), new GuiPadding(0, 48, 0, -64), 0), "" + (selEntry != null ? selEntry.weight : 1), FieldFilterNumber.INT);
+        fieldWeight = new PanelTextField<>(new GuiTransform(new Vector4f(0F, 0F, 0.5F, 0F), new GuiPadding(0, 48, 0, -64), 0), String.valueOf(selEntry != null ? selEntry.weight : 1), FieldFilterNumber.INT);
         fieldWeight.setCallback(value ->
         {
             if (selEntry == null) return;
@@ -201,7 +198,7 @@ public class GuiEditLootEntry extends GuiScreenCanvas {
                 selectedID = value.getID();
                 selEntry = value.getValue();
                 fieldName.setText("#" + selectedID);
-                fieldWeight.setText("" + selEntry.weight);
+                fieldWeight.setText(String.valueOf(selEntry.weight));
 
                 int totalWeight = lootGroup.getTotalWeight();
                 float chance = selEntry.weight / (float) totalWeight * 100F;

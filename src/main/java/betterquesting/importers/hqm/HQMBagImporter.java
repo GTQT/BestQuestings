@@ -26,7 +26,7 @@ import java.util.List;
 public class HQMBagImporter implements IImporter {
     public static final HQMBagImporter INSTANCE = new HQMBagImporter();
 
-    private List<LootGroup> hqmLoot = new ArrayList<>();
+    private final List<LootGroup> hqmLoot = new ArrayList<>();
 
     @Override
     public String getUnlocalisedName() {

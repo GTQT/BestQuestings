@@ -16,14 +16,14 @@ import java.util.List;
 import java.util.UUID;
 
 public abstract class QuestCommandBase {
+    public QuestCommandBase() {
+        this.registerPermission();
+    }
+
     public abstract String getCommand();
 
     public String getUsageSuffix() {
         return "";
-    }
-
-    public QuestCommandBase() {
-        this.registerPermission();
     }
 
     public abstract String getPermissionNode();

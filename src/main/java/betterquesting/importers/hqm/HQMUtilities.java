@@ -21,6 +21,13 @@ import org.apache.logging.log4j.Level;
 import java.util.HashMap;
 
 public class HQMUtilities {
+    private static final HashMap<String, HQMItem> itemConverters = new HashMap<>();
+
+    static {
+        itemConverters.put("hardcorequesting:hearts", new HQMItemHeart());
+        itemConverters.put("hardcorequesting:bags", new HQMItemBag());
+    }
+
     /**
      * Get HQM formatted item, Type 1
      */
@@ -111,12 +118,5 @@ public class HQMUtilities {
         int amount = JsonHelper.GetNumber(json, "required", 1000).intValue();
 
         return PlaceholderConverter.convertFluid(fluid, name, amount, null);
-    }
-
-    private static HashMap<String, HQMItem> itemConverters = new HashMap<>();
-
-    static {
-        itemConverters.put("hardcorequesting:hearts", new HQMItemHeart());
-        itemConverters.put("hardcorequesting:bags", new HQMItemBag());
     }
 }

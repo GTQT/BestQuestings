@@ -2,7 +2,6 @@ package betterquesting.commands.admin;
 
 import betterquesting.api.properties.NativeProps;
 import betterquesting.api.questing.IQuest;
-import betterquesting.api2.storage.DBEntry;
 import betterquesting.commands.QuestCommandBase;
 import betterquesting.questing.QuestDatabase;
 import betterquesting.storage.NameCache;
@@ -54,8 +53,8 @@ public class QuestCommandCheckCompletion extends QuestCommandBase {
         if (args.length == 2) {
             return CommandBase.getListOfStringsMatchingLastWord(args, NameCache.INSTANCE.getAllNames().toArray(new String[0]));
         } else if (args.length == 3) {
-            for (DBEntry<IQuest> i : QuestDatabase.INSTANCE.getEntries()) {
-                list.add(Integer.toString(i.getID()));
+            for (UUID id : QuestDatabase.INSTANCE.keySet()) {
+                list.add(id.toString());
             }
         }
 
@@ -80,8 +79,8 @@ public class QuestCommandCheckCompletion extends QuestCommandBase {
 
         String pName = NameCache.INSTANCE.getName(uuid);
 
-        int id = Integer.parseInt(args[2].trim());
-        IQuest quest = QuestDatabase.INSTANCE.getValue(id);
+        UUID id = UUID.fromString(args[2].trim());
+        IQuest quest = QuestDatabase.INSTANCE.get(id);
         if (quest == null) {
             sender.sendMessage(new TextComponentTranslation("betterquesting.cmd.check.no_id_match").setStyle(new Style().setColor(TextFormatting.RED)));
             throw getException(command);

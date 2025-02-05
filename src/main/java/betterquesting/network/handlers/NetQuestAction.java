@@ -1,8 +1,7 @@
 package betterquesting.network.handlers;
 
 import betterquesting.api.network.QuestingPacket;
-import betterquesting.api.questing.IQuest;
-import betterquesting.api2.storage.DBEntry;
+import betterquesting.api.utils.NBTConverter;
 import betterquesting.core.BetterQuesting;
 import betterquesting.core.ModReference;
 import betterquesting.network.PacketSender;
@@ -17,7 +16,10 @@ import net.minecraftforge.fml.relauncher.SideOnly;
 import org.apache.logging.log4j.Level;
 
 import javax.annotation.Nonnull;
+import java.util.Collection;
 import java.util.List;
+import java.util.UUID;
+import java.util.function.Supplier;
 
 public class NetQuestAction {
     private static final ResourceLocation ID_NAME = new ResourceLocation(ModReference.MODID, "quest_action");
@@ -27,55 +29,50 @@ public class NetQuestAction {
     }
 
     @SideOnly(Side.CLIENT)
-    public static void requestClaim(@Nonnull int[] questIDs) {
-        if (questIDs.length <= 0) return;
+    public static void requestClaim(@Nonnull Collection<UUID> questIDs) {
+        if (questIDs.isEmpty()) return;
         NBTTagCompound payload = new NBTTagCompound();
         payload.setInteger("action", 0);
-        payload.setIntArray("questIDs", questIDs);
+        payload.setTag("questIDs", NBTConverter.UuidValueType.QUEST.writeIds(questIDs));
         PacketSender.INSTANCE.sendToServer(new QuestingPacket(ID_NAME, payload));
     }
 
     @SideOnly(Side.CLIENT)
-    public static void requestDetect(@Nonnull int[] questIDs) {
-        if (questIDs.length <= 0) return;
+    public static void requestDetect(@Nonnull Collection<UUID> questIDs) {
+        if (questIDs.isEmpty()) return;
         NBTTagCompound payload = new NBTTagCompound();
         payload.setInteger("action", 1);
-        payload.setIntArray("questIDs", questIDs);
+        payload.setTag("questIDs", NBTConverter.UuidValueType.QUEST.writeIds(questIDs));
         PacketSender.INSTANCE.sendToServer(new QuestingPacket(ID_NAME, payload));
     }
 
     private static void onServer(Tuple<NBTTagCompound, EntityPlayerMP> message) {
         int action = !message.getFirst().hasKey("action", 99) ? -1 : message.getFirst().getInteger("action");
+        Supplier<List<UUID>> getQuestIDs =
+                () -> NBTConverter.UuidValueType.QUEST.readIds(message.getFirst(), "questIDs");
 
         switch (action) {
             case 0: {
-                claimQuest(message.getFirst().getIntArray("questIDs"), message.getSecond());
+                claimQuest(getQuestIDs.get(), message.getSecond());
                 break;
             }
             case 1: {
-                detectQuest(message.getFirst().getIntArray("questIDs"), message.getSecond());
+                detectQuest(getQuestIDs.get(), message.getSecond());
                 break;
             }
             default: {
-                BetterQuesting.logger.log(Level.ERROR, "Invalid quest user action '" + action + "'. Full payload:\n" + message.getFirst().toString());
+                BetterQuesting.logger.log(Level.ERROR, "Invalid quest user action '" + action + "'. Full payload:\n" + message.getFirst());
             }
         }
     }
 
-    public static void claimQuest(int[] questIDs, EntityPlayerMP player) {
-        List<DBEntry<IQuest>> qLists = QuestDatabase.INSTANCE.bulkLookup(questIDs);
-
-        for (DBEntry<IQuest> entry : qLists) {
-            if (!entry.getValue().canClaim(player)) continue;
-            entry.getValue().claimReward(player);
-        }
+    public static void claimQuest(Collection<UUID> questIDs, EntityPlayerMP player) {
+        QuestDatabase.INSTANCE.getAll(questIDs)
+                .filter(q -> q.canClaim(player))
+                .forEach(q -> q.claimReward(player));
     }
 
-    public static void detectQuest(int[] questIDs, EntityPlayerMP player) {
-        List<DBEntry<IQuest>> qLists = QuestDatabase.INSTANCE.bulkLookup(questIDs);
-
-        for (DBEntry<IQuest> entry : qLists) {
-            entry.getValue().detect(player);
-        }
+    public static void detectQuest(Collection<UUID> questIDs, EntityPlayerMP player) {
+        QuestDatabase.INSTANCE.filterKeys(questIDs).values().forEach(q -> q.detect(player));
     }
 }

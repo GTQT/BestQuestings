@@ -18,14 +18,13 @@ import betterquesting.api2.client.gui.resources.lines.IGuiLine;
 import betterquesting.api2.client.gui.resources.textures.SimpleTexture;
 import betterquesting.api2.client.gui.themes.presets.PresetColor;
 import betterquesting.api2.client.gui.themes.presets.PresetLine;
-import betterquesting.api2.storage.DBEntry;
+import com.google.common.collect.Maps;
 import net.minecraft.client.Minecraft;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.StringUtils;
 
 import java.util.*;
-import java.util.Map.Entry;
 
 /**
  * My class for lazy quest line setup on a scrolling canvas
@@ -34,9 +33,8 @@ public class CanvasQuestLine extends CanvasScrolling {
     private final List<PanelButtonQuest> btnList = new ArrayList<>();
 
     private final int buttonId;
-    private IQuestLine lastQL;
-
     private final int zoomToFitMargin = 24;
+    private IQuestLine lastQL;
 
     public CanvasQuestLine(IGuiRect rect, int buttonId) {
         super(rect);
@@ -67,10 +65,6 @@ public class CanvasQuestLine extends CanvasScrolling {
         return lastQL;
     }
 
-    public void refreshQuestLine() {
-        setQuestLine(lastQL);
-    }
-
     /**
      * Loads in quests and connecting lines
      *
@@ -94,29 +88,31 @@ public class CanvasQuestLine extends CanvasScrolling {
             this.addPanel(new PanelGeneric(new GuiRectangle(0, 0, bgSize, bgSize, 1), new SimpleTexture(new ResourceLocation(bgString), new GuiRectangle(0, 0, 256, 256))));
         }
 
-        HashMap<Integer, PanelButtonQuest> questBtns = new HashMap<>();
+        HashMap<UUID, PanelButtonQuest> questBtns = new HashMap<>();
 
-        for (DBEntry<IQuestLineEntry> questLineEntry : line.getEntries()) {
-            IQuest quest = QuestingAPI.getAPI(ApiReference.QUEST_DB).getValue(questLineEntry.getID());
+        for (Map.Entry<UUID, IQuestLineEntry> qle : line.entrySet()) {
+            IQuest quest = QuestingAPI.getAPI(ApiReference.QUEST_DB).get(qle.getKey());
 
-            if (!QuestCache.isQuestShown(quest, pid, player)) {
-                continue;
-            }
+            if (!QuestCache.isQuestShown(quest, pid, player)) continue;
 
-            GuiRectangle questRect = new GuiRectangle(questLineEntry.getValue().getPosX(), questLineEntry.getValue().getPosY(), questLineEntry.getValue().getSizeX(), questLineEntry.getValue().getSizeY());
-            PanelButtonQuest paBtn = new PanelButtonQuest(questRect, buttonId, "", new DBEntry<>(questLineEntry.getID(), quest));
+            GuiRectangle rect = new GuiRectangle(qle.getValue().getPosX(), qle.getValue().getPosY(), qle.getValue().getSizeX(), qle.getValue().getSizeY());
+            PanelButtonQuest paBtn = new PanelButtonQuest(rect, buttonId, "", Maps.immutableEntry(qle.getKey(), quest));
 
             this.addPanel(paBtn);
             this.btnList.add(paBtn);
-            questBtns.put(questLineEntry.getID(), paBtn);
+            questBtns.put(qle.getKey(), paBtn);
         }
 
-        for (Entry<Integer, PanelButtonQuest> entry : questBtns.entrySet()) {
-            DBEntry<IQuest> quest = entry.getValue().getStoredValue();
+        for (Map.Entry<UUID, PanelButtonQuest> entry : questBtns.entrySet()) {
+            Map.Entry<UUID, IQuest> quest = entry.getValue().getStoredValue();
 
-            List<DBEntry<IQuest>> reqList = QuestingAPI.getAPI(ApiReference.QUEST_DB).bulkLookup(quest.getValue().getRequirements());
+            Map<UUID, IQuest> reqMap =
+                    QuestingAPI.getAPI(ApiReference.QUEST_DB)
+                            .filterKeys(quest.getValue().getRequirements());
 
-            if (reqList.size() <= 0) continue;
+            if (reqMap.isEmpty()) {
+                continue;
+            }
 
             boolean main = quest.getValue().getProperty(NativeProps.MAIN);
             EnumQuestState qState = quest.getValue().getState(player);
@@ -146,18 +142,18 @@ public class CanvasQuestLine extends CanvasScrolling {
                     break;
             }
 
-            for (DBEntry<IQuest> req : reqList) {
-                PanelButtonQuest parBtn = questBtns.get(req.getID());
+            for (Map.Entry<UUID, IQuest> req : reqMap.entrySet()) {
+                PanelButtonQuest parBtn = questBtns.get(req.getKey());
 
                 if (parBtn != null) {
-                    IQuest.RequirementType type = quest.getValue().getRequirementType(req.getID());
+                    IQuest.RequirementType type = quest.getValue().getRequirementType(req.getKey());
                     PanelLine.ShouldDrawPredicate predicate;
                     switch (type) {
                         case NORMAL:
                             predicate = null;
                             break;
                         case IMPLICIT:
-                            predicate = (mx, my, partialTicks) -> questBtns.get(req.getID()).rect.contains(mx, my) || questBtns.get(quest.getID()).rect.contains(mx, my);
+                            predicate = (mx, my, partialTicks) -> questBtns.get(req.getKey()).rect.contains(mx, my) || questBtns.get(quest.getKey()).rect.contains(mx, my);
                             break;
                         default:
                             // bail early
@@ -169,6 +165,10 @@ public class CanvasQuestLine extends CanvasScrolling {
         }
 
         fitToWindow();
+    }
+
+    public void refreshQuestLine() {
+        setQuestLine(lastQL);
     }
 
     public void fitToWindow() {

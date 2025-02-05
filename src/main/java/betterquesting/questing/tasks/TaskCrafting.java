@@ -1,6 +1,5 @@
 package betterquesting.questing.tasks;
 
-import betterquesting.NBTUtil;
 import betterquesting.api.questing.IQuest;
 import betterquesting.api.questing.tasks.ITask;
 import betterquesting.api.utils.BigItemStack;
@@ -8,7 +7,6 @@ import betterquesting.api.utils.ItemComparison;
 import betterquesting.api.utils.JsonHelper;
 import betterquesting.api2.client.gui.misc.IGuiRect;
 import betterquesting.api2.client.gui.panels.IGuiPanel;
-import betterquesting.api2.storage.DBEntry;
 import betterquesting.api2.utils.ParticipantInfo;
 import betterquesting.client.gui2.tasks.PanelTaskCrafting;
 import betterquesting.core.BetterQuesting;
@@ -31,20 +29,14 @@ import javax.annotation.Nullable;
 import java.util.*;
 
 public class TaskCrafting implements ITask {
-
-    private static final boolean DEFAULT_PARTIAL_MATCH = true;
-    private static final boolean DEFAULT_IGNORE_NBT = false;
-    private static final boolean DEFAULT_ALLOW_ANVIL = false;
-    private static final boolean DEFAULT_ALLOW_SMELT = true;
-    private static final boolean DEFAULT_ALLOW_CRAFT = true;
-    private final Set<UUID> completeUsers = new TreeSet<>();
     public final NonNullList<BigItemStack> requiredItems = NonNullList.create();
     public final TreeMap<UUID, int[]> userProgress = new TreeMap<>();
-    public boolean partialMatch = DEFAULT_PARTIAL_MATCH;
-    public boolean ignoreNBT = DEFAULT_IGNORE_NBT;
-    public boolean allowAnvil = DEFAULT_ALLOW_ANVIL;
-    public boolean allowSmelt = DEFAULT_ALLOW_SMELT;
-    public boolean allowCraft = DEFAULT_ALLOW_CRAFT;
+    private final Set<UUID> completeUsers = new TreeSet<>();
+    public boolean partialMatch = true;
+    public boolean ignoreNBT = false;
+    public boolean allowAnvil = false;
+    public boolean allowSmelt = true;
+    public boolean allowCraft = true;
 
     @Override
     public ResourceLocation getFactoryID() {
@@ -67,7 +59,7 @@ public class TaskCrafting implements ITask {
     }
 
     @Override
-    public void detect(ParticipantInfo pInfo, DBEntry<IQuest> quest) {
+    public void detect(ParticipantInfo pInfo, Map.Entry<UUID, IQuest> quest) {
         pInfo.ALL_UUIDS.forEach((uuid) -> {
             if (isComplete(uuid)) return;
 
@@ -79,25 +71,25 @@ public class TaskCrafting implements ITask {
             setComplete(uuid);
         });
 
-        pInfo.markDirtyParty(Collections.singletonList(quest.getID()));
+        pInfo.markDirtyParty(quest.getKey());
     }
 
-    public void onItemCraft(ParticipantInfo pInfo, DBEntry<IQuest> quest, ItemStack stack) {
+    public void onItemCraft(ParticipantInfo pInfo, Map.Entry<UUID, IQuest> quest, ItemStack stack) {
         if (!allowCraft) return;
         onItemInternal(pInfo, quest, stack);
     }
 
-    public void onItemSmelt(ParticipantInfo pInfo, DBEntry<IQuest> quest, ItemStack stack) {
+    public void onItemSmelt(ParticipantInfo pInfo, Map.Entry<UUID, IQuest> quest, ItemStack stack) {
         if (!allowSmelt) return;
         onItemInternal(pInfo, quest, stack);
     }
 
-    public void onItemAnvil(ParticipantInfo pInfo, DBEntry<IQuest> quest, ItemStack stack) {
+    public void onItemAnvil(ParticipantInfo pInfo, Map.Entry<UUID, IQuest> quest, ItemStack stack) {
         if (!allowAnvil) return;
         onItemInternal(pInfo, quest, stack);
     }
 
-    private void onItemInternal(ParticipantInfo pInfo, DBEntry<IQuest> quest, ItemStack stack) {
+    private void onItemInternal(ParticipantInfo pInfo, Map.Entry<UUID, IQuest> quest, ItemStack stack) {
         if (stack.isEmpty()) return;
 
         final List<Tuple<UUID, int[]>> progress = getBulkProgress(pInfo.ALL_UUIDS);
@@ -122,23 +114,17 @@ public class TaskCrafting implements ITask {
         }
     }
 
-    @Deprecated
     @Override
     public NBTTagCompound writeToNBT(NBTTagCompound nbt) {
-        return writeToNBT(nbt, false);
-    }
-
-    @Override
-    public NBTTagCompound writeToNBT(NBTTagCompound nbt, boolean reduce) {
-        NBTUtil.setBoolean(nbt, "partialMatch", partialMatch, DEFAULT_PARTIAL_MATCH, reduce);
-        NBTUtil.setBoolean(nbt, "ignoreNBT", ignoreNBT, DEFAULT_IGNORE_NBT, reduce);
-        NBTUtil.setBoolean(nbt, "allowCraft", allowCraft, DEFAULT_ALLOW_CRAFT, reduce);
-        NBTUtil.setBoolean(nbt, "allowSmelt", allowSmelt, DEFAULT_ALLOW_SMELT, reduce);
-        NBTUtil.setBoolean(nbt, "allowAnvil", allowAnvil, DEFAULT_ALLOW_ANVIL, reduce);
+        nbt.setBoolean("partialMatch", partialMatch);
+        nbt.setBoolean("ignoreNBT", ignoreNBT);
+        nbt.setBoolean("allowCraft", allowCraft);
+        nbt.setBoolean("allowSmelt", allowSmelt);
+        nbt.setBoolean("allowAnvil", allowAnvil);
 
         NBTTagList itemArray = new NBTTagList();
         for (BigItemStack stack : this.requiredItems) {
-            itemArray.appendTag(JsonHelper.ItemStackToJson(stack, new NBTTagCompound(), reduce));
+            itemArray.appendTag(JsonHelper.ItemStackToJson(stack, new NBTTagCompound()));
         }
         nbt.setTag("requiredItems", itemArray);
 
@@ -147,11 +133,11 @@ public class TaskCrafting implements ITask {
 
     @Override
     public void readFromNBT(NBTTagCompound nbt) {
-        partialMatch = NBTUtil.getBoolean(nbt, "partialMatch", DEFAULT_PARTIAL_MATCH);
-        ignoreNBT = NBTUtil.getBoolean(nbt, "ignoreNBT", DEFAULT_IGNORE_NBT);
-        allowCraft = NBTUtil.getBoolean(nbt, "allowCraft", DEFAULT_ALLOW_CRAFT);
-        allowSmelt = NBTUtil.getBoolean(nbt, "allowSmelt", DEFAULT_ALLOW_SMELT);
-        allowAnvil = NBTUtil.getBoolean(nbt, "allowAnvil", DEFAULT_ALLOW_ANVIL);
+        partialMatch = nbt.getBoolean("partialMatch");
+        ignoreNBT = nbt.getBoolean("ignoreNBT");
+        if (nbt.hasKey("allowCraft")) allowCraft = nbt.getBoolean("allowCraft");
+        if (nbt.hasKey("allowSmelt")) allowSmelt = nbt.getBoolean("allowSmelt");
+        if (nbt.hasKey("allowAnvil")) allowAnvil = nbt.getBoolean("allowAnvil");
 
         requiredItems.clear();
         NBTTagList iList = nbt.getTagList("requiredItems", 10);
@@ -246,13 +232,13 @@ public class TaskCrafting implements ITask {
     }
 
     @Override
-    public IGuiPanel getTaskGui(IGuiRect rect, DBEntry<IQuest> context) {
+    public IGuiPanel getTaskGui(IGuiRect rect, Map.Entry<UUID, IQuest> context) {
         return new PanelTaskCrafting(rect, this);
     }
 
     @Override
     @SideOnly(Side.CLIENT)
-    public GuiScreen getTaskEditor(GuiScreen parent, DBEntry<IQuest> quest) {
+    public GuiScreen getTaskEditor(GuiScreen parent, Map.Entry<UUID, IQuest> quest) {
         return null;
     }
 

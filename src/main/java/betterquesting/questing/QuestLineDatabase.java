@@ -2,120 +2,128 @@ package betterquesting.questing;
 
 import betterquesting.api.questing.IQuestLine;
 import betterquesting.api.questing.IQuestLineDatabase;
-import betterquesting.api2.storage.DBEntry;
-import betterquesting.api2.storage.SimpleDatabase;
+import betterquesting.api.utils.NBTConverter;
+import betterquesting.api2.storage.IUuidDatabase;
+import betterquesting.api2.storage.UuidDatabase;
 import betterquesting.api2.utils.QuestLineSorter;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.nbt.NBTTagList;
 import net.minecraft.util.math.MathHelper;
 
 import javax.annotation.Nullable;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
+import java.util.*;
+import java.util.stream.Collectors;
 
-public final class QuestLineDatabase extends SimpleDatabase<IQuestLine> implements IQuestLineDatabase {
+public class QuestLineDatabase extends UuidDatabase<IQuestLine> implements IQuestLineDatabase {
     public static final QuestLineDatabase INSTANCE = new QuestLineDatabase();
 
-    private final List<Integer> lineOrder = new ArrayList<>();
-    private final QuestLineSorter SORTER = new QuestLineSorter(this);
+    /**
+     * NOTE: this isn't kept perfectly in-sync with the contents of the super class (BiMap).
+     *
+     * <p>In order to keep this perfectly in-sync, we would need to override all methods that mutate
+     * the underlying data, in order to also update lineOrder
+     *
+     * <p>I <em>think</em> that we are okay without doing this, as our methods handle lineOrder
+     * missing some keys, or containing keys that aren't used anymore, but if we do run into issues,
+     * this might be the cause.
+     */
+    protected final List<UUID> lineOrder = new ArrayList<>();
+    protected final QuestLineSorter SORTER = new QuestLineSorter(this);
 
     @Override
-    public synchronized int getOrderIndex(int lineID) {
+    public synchronized int getOrderIndex(UUID lineID) {
+        if (!containsKey(lineID)) return -1;
         int order = lineOrder.indexOf(lineID);
         if (order >= 0) return order;
-        if (getValue(lineID) == null) return -1;
 
         lineOrder.add(lineID);
         return lineOrder.size() - 1;
     }
 
     @Override
-    public synchronized void setOrderIndex(int lineID, int index) {
-        lineOrder.remove((Integer) lineID);
+    public void setOrderIndex(UUID lineID, int index) {
+        lineOrder.remove(lineID);
         lineOrder.add(MathHelper.clamp(index, 0, lineOrder.size()), lineID);
     }
 
     @Override
-    public synchronized List<DBEntry<IQuestLine>> getSortedEntries() {
-        List<DBEntry<IQuestLine>> list = new ArrayList<>(this.getEntries());
-        list.sort(SORTER);
-        return list;
+    public synchronized List<Map.Entry<UUID, IQuestLine>> getOrderedEntries() {
+        return entrySet().stream()
+                .sorted(SORTER)
+                .collect(Collectors.toCollection(ArrayList::new));
     }
 
     @Override
-    public synchronized IQuestLine createNew(int id) {
+    public IQuestLine createNew(UUID lineID) {
         IQuestLine ql = new QuestLine();
-        if (id >= 0) this.add(id, ql);
+        put(lineID, ql);
         return ql;
     }
 
     @Override
-    public synchronized void removeQuest(int questID) {
-        for (DBEntry<IQuestLine> ql : getEntries()) {
-            ql.getValue().removeID(questID);
-        }
-    }
-
-    @Deprecated
-    @Override
-    public synchronized NBTTagList writeToNBT(NBTTagList nbt, @Nullable List<Integer> subset) {
-        return writeToNBT(nbt, subset, false);
+    public void removeQuest(UUID questID) {
+        values().forEach(ql -> ql.remove(questID));
     }
 
     @Override
-    public synchronized NBTTagList writeToNBT(NBTTagList nbt, @Nullable List<Integer> subset, boolean reduce) {
-        for (DBEntry<IQuestLine> entry : getEntries()) {
-            if (subset != null && !subset.contains(entry.getID())) continue;
-            NBTTagCompound jObj = entry.getValue().writeToNBT(new NBTTagCompound(), null, reduce);
-            jObj.setInteger("lineID", entry.getID());
-            jObj.setInteger("order", getOrderIndex(entry.getID()));
-            nbt.appendTag(jObj);
+    public NBTTagList writeToNBT(NBTTagList json, @Nullable List<UUID> subset) {
+        for (Map.Entry<UUID, IQuestLine> entry : entrySet()) {
+            if (subset != null && !subset.contains(entry.getKey())) continue;
+            NBTTagCompound jObj = entry.getValue().writeToNBT(new NBTTagCompound(), null);
+            NBTConverter.UuidValueType.QUEST_LINE.writeId(entry.getKey(), jObj);
+            jObj.setInteger("order", getOrderIndex(entry.getKey()));
+            json.appendTag(jObj);
         }
 
-        return nbt;
+        return json;
     }
 
     @Override
     public synchronized void readFromNBT(NBTTagList json, boolean merge) {
-        if (!merge) reset();
+        if (!merge) clear();
 
         List<IQuestLine> unassigned = new ArrayList<>();
-        HashMap<Integer, Integer> orderMap = new HashMap<>();
+        SortedMap<Integer, UUID> orderMap = new TreeMap<>();
 
         for (int i = 0; i < json.tagCount(); i++) {
             NBTTagCompound jql = json.getCompoundTagAt(i);
 
-            int id = jql.hasKey("lineID", 99) ? jql.getInteger("lineID") : -1;
+            Optional<UUID> lineIDOptional = NBTConverter.UuidValueType.QUEST_LINE.tryReadId(jql);
+            UUID lineID = null;
+
+            if (lineIDOptional.isPresent()) {
+                lineID = lineIDOptional.get();
+            } else if (jql.hasKey("lineID", 99)) {
+                lineID = IUuidDatabase.convertLegacyId(jql.getInteger("lineID"));
+            }
+
             int order = jql.hasKey("order", 99) ? jql.getInteger("order") : -1;
 
-            IQuestLine line = getValue(id);
-            if (line == null) line = new QuestLine();
+            IQuestLine line = getOrDefault(lineID, new QuestLine());
             line.readFromNBT(jql, false);
 
-            if (id >= 0) {
-                add(id, line);
+            if (lineID != null) {
+                put(lineID, line);
             } else {
                 unassigned.add(line);
             }
 
-            if (order >= 0) orderMap.put(order, id);
+            if (order >= 0) orderMap.put(order, lineID);
         }
 
         // Legacy support ONLY
-        for (IQuestLine q : unassigned) add(nextID(), q);
+        for (IQuestLine q : unassigned) put(generateKey(), q);
 
         List<Integer> orderKeys = new ArrayList<>(orderMap.keySet());
         Collections.sort(orderKeys);
 
         lineOrder.clear();
-        for (int o : orderKeys) lineOrder.add(orderMap.get(o));
+        lineOrder.addAll(orderMap.values());
     }
 
     @Override
-    public synchronized void reset() {
-        super.reset();
+    public synchronized void clear() {
+        super.clear();
         lineOrder.clear();
     }
 }

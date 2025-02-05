@@ -33,6 +33,10 @@ public class QuestResourcesFile implements IResourcePack, Closeable {
     private List<ZipFile> zipList = null;
     private BufferedImage bufferedImage = null;
 
+    private static String locationToName(ResourceLocation loc) {
+        return String.format("%s/%s/%s", "assets", loc.getNamespace(), loc.getPath());
+    }
+
     @Nonnull
     @Override
     public InputStream getInputStream(@Nonnull ResourceLocation loc) throws IOException {
@@ -157,16 +161,12 @@ public class QuestResourcesFile implements IResourcePack, Closeable {
         return zipList;
     }
 
-    private static String locationToName(ResourceLocation loc) {
-        return String.format("%s/%s/%s", "assets", loc.getNamespace(), loc.getPath());
-    }
-
     private void logNameNotLowercase(String name, String file) {
         BetterQuesting.logger.log(Level.WARN, "ResourcePack: ignored non-lowercase namespace: {} in {}", new Object[]{name, file});
     }
 
     @Override
-    public void finalize() throws Throwable {
+    protected void finalize() throws Throwable {
         this.close();
         super.finalize();
     }

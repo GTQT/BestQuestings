@@ -15,7 +15,7 @@ public class ToolboxTabMain implements IToolTab {
     public static final ToolboxTabMain INSTANCE = new ToolboxTabMain();
 
     private int dragSnap = 4;
-    private int[] snaps = new int[]{1, 4, 6, 8, 12, 16, 24, 32};
+    private final int[] snaps = new int[]{1, 4, 6, 8, 12, 16, 24, 32};
 
     @Override
     public String getUnlocalisedName() {

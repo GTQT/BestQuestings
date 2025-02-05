@@ -18,12 +18,12 @@ public final class DBEntry<T> implements Comparable<DBEntry<T>> {
         this.obj = obj;
     }
 
-    public final int getID() {
+    public int getID() {
         return this.id;
     }
 
     @Nonnull
-    public final T getValue() {
+    public T getValue() {
         return obj;
     }
 

@@ -8,7 +8,6 @@ import betterquesting.api.utils.BigItemStack;
 import betterquesting.api.utils.JsonHelper;
 import betterquesting.api2.client.gui.misc.IGuiRect;
 import betterquesting.api2.client.gui.panels.IGuiPanel;
-import betterquesting.api2.storage.DBEntry;
 import betterquesting.client.gui2.rewards.PanelRewardChoice;
 import betterquesting.core.BetterQuesting;
 import betterquesting.questing.rewards.factory.FactoryRewardChoice;
@@ -22,10 +21,7 @@ import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
 import org.apache.logging.log4j.Level;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.TreeMap;
-import java.util.UUID;
+import java.util.*;
 
 public class RewardChoice implements IReward {
     /**
@@ -58,7 +54,7 @@ public class RewardChoice implements IReward {
     }
 
     @Override
-    public boolean canClaim(EntityPlayer player, DBEntry<IQuest> quest) {
+    public boolean canClaim(EntityPlayer player, Map.Entry<UUID, IQuest> quest) {
         if (!selected.containsKey(QuestingAPI.getQuestingUUID(player))) return false;
 
         int tmp = selected.get(QuestingAPI.getQuestingUUID(player));
@@ -66,7 +62,7 @@ public class RewardChoice implements IReward {
     }
 
     @Override
-    public void claimReward(EntityPlayer player, DBEntry<IQuest> quest) {
+    public void claimReward(EntityPlayer player, Map.Entry<UUID, IQuest> quest) {
         UUID playerID = QuestingAPI.getQuestingUUID(player);
 
         if (choices.size() <= 0) {
@@ -129,13 +125,13 @@ public class RewardChoice implements IReward {
 
     @Override
     @SideOnly(Side.CLIENT)
-    public IGuiPanel getRewardGui(IGuiRect rect, DBEntry<IQuest> quest) {
+    public IGuiPanel getRewardGui(IGuiRect rect, Map.Entry<UUID, IQuest> quest) {
         return new PanelRewardChoice(rect, quest, this);
     }
 
     @Override
     @SideOnly(Side.CLIENT)
-    public GuiScreen getRewardEditor(GuiScreen screen, DBEntry<IQuest> quest) {
+    public GuiScreen getRewardEditor(GuiScreen screen, Map.Entry<UUID, IQuest> quest) {
         return null;
     }
 }

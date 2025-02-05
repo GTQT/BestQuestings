@@ -29,7 +29,6 @@ betterquesting.btn.edit=Edit
 betterquesting.btn.new=Add New
 betterquesting.btn.import=Import
 betterquesting.btn.logic=Logic
-betterquesting.btn.task_logic=Task Logic: %s
 betterquesting.btn.show=Show
 betterquesting.btn.show.hidden=Not visible to the player
 betterquesting.btn.show.unlocked=Visible to the player when the quest can be completed, or all prior quests are completed
@@ -65,9 +64,6 @@ betterquesting.btn.visible_always=Always show dependency line
 betterquesting.btn.visible_implicit=Hover to show dependency line
 betterquesting.btn.view_mode=View Mode
 betterquesting.btn.share_quest=Share to Chat
-betterquesting.btn.copy_id=Copy Quest ID
-betterquesting.btn.edit_name_desc.just_close=Just Close
-betterquesting.btn.edit_name_desc.open_window=Open Window
 
 betterquesting.home.exit=Exit
 betterquesting.home.quests=Quests
@@ -93,7 +89,6 @@ betterquesting.gui.key=Key Name
 betterquesting.gui.no_key=No Key
 betterquesting.gui.duplicate_key=Duplicate Key
 betterquesting.gui.yes_always=Yes, always
-betterquesting.gui.formatting_buttons=Formattings
 
 betterquesting.tooltip.tasks_complete=%s/%s Tasks Complete
 betterquesting.tooltip.complete=COMPLETE
@@ -113,23 +108,21 @@ betterquesting.tooltip.auto_claim=Auto Claim: %s
 betterquesting.tooltip.repeat=Cooldown: %s
 betterquesting.tooltip.repeat_with_edit_mode=Edit mode enabled, repeatable quests won't reset
 betterquesting.tooltip.update_quests=Update Available!%n§7A new quest line version is available.%nClick to install and migrate progress.
-betterquesting.tooltip.edit_name_desc.just_close_screen=Just close the screen, but the window remains.
-betterquesting.tooltip.edit_name_desc.just_close_window=Just close the window, but the screen remains.
 
 betterquesting.notice.complete=Quest Complete
 betterquesting.notice.update=Quest Updated
 betterquesting.notice.unlock=Quest Unlocked
 
 betterquesting.msg.heart_disabled=Hardcore lives are not enabled. Use "/bq_admin hardcore" to toggle it
-betterquesting.msg.share_quest=§b[Quest: %s§b]
+betterquesting.msg.share_quest=§b[Quest: #%s - %s§b]
 betterquesting.msg.share_quest_invalid=§cCannot view Quest %s
 betterquesting.msg.share_quest_hover_text_success=§aClick to View Quest
 betterquesting.msg.share_quest_hover_text_failure=§cQuest is Currently Inaccessible
-betterquesting.msg.copy_quest_copied=§eCopied to clipboard: §b%s
-betterquesting.msg.copy_quest_failed=§cCould not copy §b%s§r§c to clipboard!
+
+betterquesting.msg.copy_quest_copied=§eCopied to clipboard:
+betterquesting.msg.copy_quest_failed=§cCould not copy to clipboard!
 
 key.betterquesting.quests=Open Quests
-key.betterquesting.back=Return to Previous Page
 key.betterquesting.party=Party Manager
 key.betterquesting.themes=Change Theme
 
@@ -158,7 +151,7 @@ betterquesting.btn.help8=Resources
 betterquesting.help.page1=§l§nGeneral Navigation%n§r%nBetter Questing's main questing GUIs do not rely on an item or block that could be easily lost but instead through a single keybinding which can be found and changed through the controls menu.%n%nIn the Quest Lines screen you can select any of your active lines from the list and drag around the box to navigate to the quest of your choosing to begin completing tasks.%n%nQuesting parties can be created or edited via the Party Management screens. Here you can also toggle options for sharing hardcore lives or quest rewards.%n%nIf you'd like to change the look of your questing UIs you can choose from the currently installed themes in the Theme selection screen.
 betterquesting.help.page2=§l§nSubmission Station%n§r%nAlthough many of the questing tasks can be submitted directly through your inventory (including liquids) sometimes you need a more automated solution. This is where the Object Submission Station (OSS) comes in handy. Tasks supporting the OSS can be selected through the built in interface to enable its use. Once setup, liquids and items can be either piped in or dropped into the interface's input slot however it will not void items or liquids if no task is selected or if it has already been completed making it relatively safe from accidental item/fluid deletion. Multiple OSS are also capable of taking on separate sub-tasks under the same quest simultaneously!
 betterquesting.help.page3=§l§nMaking Quests%n§r%nTo begin making quests and quest lines you will first have to enable edit mode by running the edit command (See commands for more info). You will then be able to add or remove quest lines however you do not require one to begin making quests. This is especially handy if you'd like to make secret quests that unlock other quests or quest lines.%n%nThere are several menus you will need to become familiar with while editing. These will be a little overwhelming at first compared to most other mods but over time it will get easier. Some advanced editing screens will edit raw questing data so you'd want to be very careful what you change as it could have adverse side effects however this should never result in corruption or a crash. If either occurs than you should immediately report it to a developer.
-betterquesting.help.page4=§l§nCommands%n§r%nThere are only a handful of commands you need to know when working with Better Questing. They are separated into user commands that anyone can run and admin commands which are restricted to server operators.%n%n§o/bq_user refresh%n§r%nManually resyncs the local questing database with the server in case of potential desync issues.%n%n§o/bq_user help%n§r%nGives the player a copy of this guide%n%n§o/bq_admin edit%n§r%nToggles quest editing mode on and off. When enabled, operators will be able to access the editing menus for quests and quest lines. Remember to disable this before publishing packs or quests.%n%n§o/bq_admin hardcore%n§r%nToggles on and off the use of hardcore lives. When all lives have been depleted, players will be set to spectator mode as per standard vanilla hardcore.%n%n§o/bq_admin reset [all|<quest_id>] [username|uuid]%n§r%nErases quest completion data for the given user. Handy to use before publishing packs.%n%n§o/bq_admin default [save|load]%n§r%nSaves/loads the current quest database to/from the global default directory. Setting defaults means any newly created worlds will start with that particular set of quests. Saving will also preserve completion data, hardcore state and edit mode so be sure to use the various other command as necessary before running this one.%n%n§o/bq_admin complete <quest_id> [username|uuid]%n§r%nForce completes a quest for the given user%n%n§o/bq_admin delete [all|<quest_id>]%n§r%nDeletes given quest(s) and progression data however it does not delete new world defaults.%n%n§o/bq_admin lives [add|set|max|default] <value> [username]%n§r%nThese commands change the amount of lives players have or the starting and max values.
+betterquesting.help.page4=§l§nCommands%n§r%nThere are only a handful of commands you need to know when working with Better Questing. They are separated into user commands that anyone can run and admin commands which are restricted to server operators.%n%n§o/bq_user refresh%n§r%nManually resyncs the local questing database with the server in case of potential desync issues.%n%n§o/bq_user help%n§r%nGives the player a copy of this guide%n%n§o/bq_admin edit%n§r%nToggles quest editing mode on and off. When enabled, operators will be able to access the editing menus for quests and quest lines. Remember to disable this before publishing packs or quests.%n%n§o/bq_admin hardcore%n§r%nToggles on and off the use of hardcore lives. When all lives have been depleted, players will be banned from the server or have their world deleted as per standard vanilla hardcore.%n%n§o/bq_admin reset [all|<quest_id>] [username|uuid]%n§r%nErases quest completion data for the given user. Handy to use before publishing packs.%n%n§o/bq_admin default [save|load]%n§r%nSaves/loads the current quest database to/from the global default directory. Setting defaults means any newly created worlds will start with that particular set of quests. Saving will also preserve completion data, hardcore state and edit mode so be sure to use the various other command as necessary before running this one.%n%n§o/bq_admin complete <quest_id> [username|uuid]%n§r%nForce completes a quest for the given user%n%n§o/bq_admin delete [all|<quest_id>]%n§r%nDeletes given quest(s) and progression data however it does not delete new world defaults.%n%n§o/bq_admin lives [add|set|max|default] <value> [username]%n§r%nThese commands change the amount of lives players have or the starting and max values.
 betterquesting.help.page5=§l§nImporting%n§r%nSome expansion packs may include importers for other questing mods or allow pack makers to download online quest lines. To access these importers you can click on the 'Import' button in the main quest line editor. By default Better Questing does not have any importers so if you require a specific importer you'll need to either find an expansion with one or make it yourself.
 betterquesting.help.page6=§l§nThemes%n§r%nIf you're someone who prefers a certain color pallet in their UIs or are just a pack maker wanting to give it that more authentic look and feel then themes are your best friend. Themes can change the look of the questing UIs to suit whatever your needs may be whether it be futuristic, magical or just classic Minecraft. They can be installed either through resource packs, resource directory or via expansions packs.
 betterquesting.help.page7=§l§nLocalization%n§r%nBetter Questing supports full localization of quest names and descriptions so that if you wanted to release your pack to users of all nationalities now you now can! In order to begin localizing your quests you'll need to use unique keys such as "§omypack.quest1.name§r" instead of plain text. You can then create a resource pack containing only .lang files for all the language specific translations. These files can alternatively be stored in Better Questing's resource directory for better bundling in packs
@@ -194,10 +187,8 @@ betterquesting.toolbox.tool.scale.name=Scale Icon
 betterquesting.toolbox.tool.scale.desc=Scales the quest icons up or down
 betterquesting.toolbox.tool.raw.name=Edit Raw
 betterquesting.toolbox.tool.raw.desc=Opens up the raw quest line JSON for editing. Includes additional hidden settings such as changing the background
-betterquesting.toolbox.tool.frame.name=Change Icon Frame
+betterquesting.toolbox.tool.frame.name=Edit Icon Frame
 betterquesting.toolbox.tool.frame.desc=Changes the quest icons frame style
-betterquesting.toolbox.tool.set_main.name=Set as Main
-betterquesting.toolbox.tool.set_main.desc=Set or unset the quest as main, which increases the link draw size
 
 betterquesting.cmd.complete=Completed quest %s for %s
 betterquesting.cmd.default.save=Quest database saved as default
@@ -229,7 +220,7 @@ betterquesting.cmd.reset.all_all=Reset all quests for everyone
 betterquesting.cmd.refresh=Refreshing local database...
 
 betterquesting.cmd.check_all=All quests completed by %s:
-betterquesting.cmd.check_all.line=%d %s
+betterquesting.cmd.check_all.line=%s %s
 betterquesting.cmd.check.true=%s has completed %s
 betterquesting.cmd.check.false=%s has not completed %s
 betterquesting.cmd.check.no_id_match=Quest id does not match any quest
@@ -258,7 +249,6 @@ bq_standard.task.hunt=Mob Hunt Task
 bq_standard.task.scoreboard=Scoreboard Task
 bq_standard.task.location=Location Task
 bq_standard.task.fluid=Fluid Task
-bq_standard.task.optional_fluid=Optional Fluid Task
 bq_standard.task.meeting=Meeting Task
 bq_standard.task.xp=Experience Task
 bq_standard.task.block_break=Break Block Task
@@ -268,8 +258,6 @@ bq_standard.task.tame=Tame Task
 bq_standard.task.interact_item=Item Interaction Task
 bq_standard.task.interact_entity=Entity Interaction Task
 bq_standard.task.trigger=Criterion Trigger Task
-
-bq_standard.task.search=Search...
 
 bq_standard.reward.choice=Choice Reward
 bq_standard.reward.item=Item Reward
@@ -287,13 +275,11 @@ bq_standard.title.edit_crafting=Edit Crafting Task
 bq_standard.title.edit_scoreboard=Edit Scoreboard Task
 bq_standard.title.edit_advancement=Edit Advancement Task
 bq_standard.title.edit_tame=Edit Tame Task
-bq_standard.title.edit_retrieval_task=Edit Retrieval Task
 
 bq_standard.btn.select_mob=Select Mob
 bq_standard.btn.add_remove_drops=Add/Remove Drops
 bq_standard.btn.edit_items=Add/Remove Items
 bq_standard.btn.consume=Consume: %s
-bq_standard.btn.edit_nbt=Edit NBT
 
 bq_standard.gui.amount=Amount
 bq_standard.gui.kill=Kill %s
@@ -336,13 +322,3 @@ betterquesting.notification.tooltip=Toggle Quest Notifications
 
 betterquesting.context.add_task=Add Task
 betterquesting.context.add_reward=Add Reward
-
-# Task Edit Screen
-gui.edit_task_retrieval.autoConsume=Auto Consume
-gui.edit_task_retrieval.consume=Consume
-gui.edit_task_retrieval.entryLogic=Entry Logic
-gui.edit_task_retrieval.groupDetect=Group Detect
-gui.edit_task_retrieval.ignoreNBT=Ignore NBT
-gui.edit_task_retrieval.partialMatch=Partial Match
-gui.edit_task_retrieval.requiredItems=Required Items
-gui.edit_task_retrieval.list=List...

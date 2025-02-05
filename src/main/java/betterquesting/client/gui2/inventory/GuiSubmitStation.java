@@ -2,7 +2,6 @@ package betterquesting.client.gui2.inventory;
 
 import betterquesting.api.api.QuestingAPI;
 import betterquesting.api.client.gui.misc.INeedsRefresh;
-import betterquesting.api.properties.NativeProps;
 import betterquesting.api.questing.IQuest;
 import betterquesting.api.questing.tasks.IFluidTask;
 import betterquesting.api.questing.tasks.IItemTask;
@@ -35,14 +34,13 @@ import net.minecraft.util.NonNullList;
 import org.lwjgl.input.Keyboard;
 import org.lwjgl.util.vector.Vector4f;
 
-import java.util.Iterator;
-import java.util.List;
+import java.util.*;
 
 public class GuiSubmitStation extends GuiContainerCanvas implements INeedsRefresh {
     private final ContainerSubmitStation ssContainer;
     private final TileSubmitStation tile;
 
-    private final NonNullList<DBEntry<IQuest>> quests = NonNullList.create();
+    private final List<Map.Entry<UUID, IQuest>> quests = new ArrayList<>();
     private final NonNullList<DBEntry<ITask>> tasks = NonNullList.create();
 
     private IGuiCanvas cvBackground;
@@ -72,7 +70,7 @@ public class GuiSubmitStation extends GuiContainerCanvas implements INeedsRefres
     public void refreshGui() {
         quests.clear();
         QuestCache qc = mc.player.getCapability(CapabilityProviderQuestCache.CAP_QUEST_CACHE, null);
-        if (qc != null) quests.addAll(QuestDatabase.INSTANCE.bulkLookup(qc.getActiveQuests()));
+        if (qc != null) quests.addAll(QuestDatabase.INSTANCE.filterKeys(qc.getActiveQuests()).entrySet());
         filterQuests();
 
         refreshTaskPanel();
@@ -87,7 +85,7 @@ public class GuiSubmitStation extends GuiContainerCanvas implements INeedsRefres
         quests.clear();
         taskPanel = null;
         QuestCache qc = mc.player.getCapability(CapabilityProviderQuestCache.CAP_QUEST_CACHE, null);
-        if (qc != null) quests.addAll(QuestDatabase.INSTANCE.bulkLookup(qc.getActiveQuests()));
+        if (qc != null) quests.addAll(QuestDatabase.INSTANCE.filterKeys(qc.getActiveQuests()).entrySet());
         filterQuests();
 
         // Background panel
@@ -144,7 +142,7 @@ public class GuiSubmitStation extends GuiContainerCanvas implements INeedsRefres
             @Override
             public void onButtonClick() {
                 tile.setupTask(QuestingAPI.getQuestingUUID(mc.player), quests.get(selQuest).getValue(), tasks.get(selTask).getValue());
-                NetStationEdit.setupStation(tile.getPos(), selQuest, selTask);
+                NetStationEdit.setupStation(tile.getPos(), quests.get(selQuest).getKey(), selTask);
                 refreshTaskPanel();
             }
         };
@@ -195,10 +193,10 @@ public class GuiSubmitStation extends GuiContainerCanvas implements INeedsRefres
     }
 
     private void filterQuests() {
-        Iterator<DBEntry<IQuest>> iter = quests.iterator();
+        Iterator<Map.Entry<UUID, IQuest>> iter = quests.iterator();
 
         while (iter.hasNext()) {
-            DBEntry<IQuest> entry = iter.next();
+            Map.Entry<UUID, IQuest> entry = iter.next();
 
             boolean valid = false;
 
@@ -217,11 +215,11 @@ public class GuiSubmitStation extends GuiContainerCanvas implements INeedsRefres
         if (taskPanel != null) cvBackground.removePanel(taskPanel);
 
         if (tile.isSetup()) {
-            DBEntry<IQuest> qdbe = null;
+            Map.Entry<UUID, IQuest> qdbe = null;
 
             for (int i = 0; i < quests.size(); i++) {
-                DBEntry<IQuest> entry = quests.get(i);
-                if (entry.getID() == tile.questID) {
+                Map.Entry<UUID, IQuest> entry = quests.get(i);
+                if (entry.getKey().equals(tile.questID)) {
                     selQuest = i;
                     qdbe = entry;
                     break;
@@ -263,8 +261,8 @@ public class GuiSubmitStation extends GuiContainerCanvas implements INeedsRefres
             return;
         } else selQuest = lazyPosMod(selQuest, quests.size());
 
-        DBEntry<IQuest> entry = quests.get(selQuest);
-        txtQstTitle.setText(QuestTranslation.translate(entry.getValue().getProperty(NativeProps.NAME)));
+        Map.Entry<UUID, IQuest> entry = quests.get(selQuest);
+        txtQstTitle.setText(QuestTranslation.translateQuestName(entry));
 
         tasks.clear();
         tasks.addAll(entry.getValue().getTasks().getEntries());

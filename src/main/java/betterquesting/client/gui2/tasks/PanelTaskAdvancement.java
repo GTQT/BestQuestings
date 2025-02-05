@@ -32,7 +32,7 @@ public class PanelTaskAdvancement extends CanvasEmpty {
         EntityPlayerSP player = Minecraft.getMinecraft().player;
         boolean isComplete = task.isComplete(QuestingAPI.getQuestingUUID(player));
 
-        String title = "" + task.advID;
+        String title = String.valueOf(task.advID);
         String desc = "?";
         BigItemStack icon = new BigItemStack(ItemPlaceholder.placeholder);
 
@@ -48,7 +48,7 @@ public class PanelTaskAdvancement extends CanvasEmpty {
         this.addPanel(new PanelGeneric(new GuiRectangle(0, 0, 24, 24, -1), new ItemTexture(icon)));
 
         this.addPanel(new PanelTextBox(new GuiTransform(GuiAlign.TOP_EDGE, new GuiPadding(28, 2, 0, -12), 0), title).setColor(PresetColor.TEXT_MAIN.getColor()));
-        String s = isComplete ? (TextFormatting.GREEN.toString() + QuestTranslation.translate("betterquesting.tooltip.complete")) : (TextFormatting.RED.toString() + QuestTranslation.translate("betterquesting.tooltip.incomplete"));
+        String s = isComplete ? (TextFormatting.GREEN + QuestTranslation.translate("betterquesting.tooltip.complete")) : (TextFormatting.RED + QuestTranslation.translate("betterquesting.tooltip.incomplete"));
         this.addPanel(new PanelTextBox(new GuiTransform(GuiAlign.TOP_EDGE, new GuiPadding(28, 14, 0, -24), 0), s).setColor(PresetColor.TEXT_MAIN.getColor()));
         this.addPanel(new PanelTextBox(new GuiTransform(GuiAlign.FULL_BOX, new GuiPadding(0, 32, 0, 0), 0), desc).setColor(PresetColor.TEXT_MAIN.getColor()));
     }

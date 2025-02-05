@@ -31,6 +31,8 @@ import java.util.Locale;
 @SideOnly(Side.CLIENT)
 public class RenderUtils {
     public static final String REGEX_NUMBER = "[^\\.0123456789-]"; // I keep screwing this up so now it's reusable
+    private static final IGuiColor STENCIL_COLOR = new GuiColorStatic(0, 0, 0, 255);
+    private static int stencilDepth = 0;
 
     public static void RenderItemStack(Minecraft mc, ItemStack stack, int x, int y, String text) {
         RenderItemStack(mc, stack, x, y, text, Color.WHITE.getRGB());
@@ -196,6 +198,8 @@ public class RenderUtils {
         GlStateManager.popMatrix();
     }
 
+    // TODO: Clean this up. The list of parameters is getting a bit excessive
+
     public static void drawSplitString(FontRenderer renderer, String string, int x, int y, int width, int color, boolean shadow) {
         drawSplitString(renderer, string, x, y, width, color, shadow, 0, splitString(string, width, renderer).size() - 1);
     }
@@ -203,8 +207,6 @@ public class RenderUtils {
     public static void drawSplitString(FontRenderer renderer, String string, int x, int y, int width, int color, boolean shadow, int start, int end) {
         drawHighlightedSplitString(renderer, string, x, y, width, color, shadow, start, end, 0, 0, 0);
     }
-
-    // TODO: Clean this up. The list of parameters is getting a bit excessive
 
     public static void drawHighlightedSplitString(FontRenderer renderer, String string, int x, int y, int width, int color, boolean shadow, int highlightColor, int highlightStart, int highlightEnd) {
         drawHighlightedSplitString(renderer, string, x, y, width, color, shadow, 0, splitString(string, width, renderer).size() - 1, highlightColor, highlightStart, highlightEnd);
@@ -248,22 +250,22 @@ public class RenderUtils {
             renderer.drawString(list.get(i), x, y + (renderer.FONT_HEIGHT * (i - start)), color, shadow);
 
             // DEBUG
-			/*boolean b = (System.currentTimeMillis()/1000)%2 == 0;
+            /*boolean b = (System.currentTimeMillis()/1000)%2 == 0;
 
-			if(b)
-			{
-				renderer.drawString(i + ": " + list.get(i), x, y + (renderer.FONT_HEIGHT * (i - start)), color, shadow);
-			}
+            if(b)
+            {
+                renderer.drawString(i + ": " + list.get(i), x, y + (renderer.FONT_HEIGHT * (i - start)), color, shadow);
+            }
 
-			if(i >= noFormat.size())
-			{
-				continue;
-			}
+            if(i >= noFormat.size())
+            {
+                continue;
+            }
 
-			if(!b)
-			{
-				renderer.drawString(i + ": " + noFormat.get(i), x, y + (renderer.FONT_HEIGHT * (i - start)), color, shadow);
-			}*/
+            if(!b)
+            {
+                renderer.drawString(i + ": " + noFormat.get(i), x, y + (renderer.FONT_HEIGHT * (i - start)), color, shadow);
+            }*/
 
             int lineSize = noFormat.get(i).length();
             int idxEnd = idxStart + lineSize;
@@ -338,10 +340,10 @@ public class RenderUtils {
         GlStateManager.enableColorLogic();
         GlStateManager.colorLogicOp(GlStateManager.LogicOp.OR_REVERSE);
         bufferbuilder.begin(7, DefaultVertexFormats.POSITION);
-        bufferbuilder.pos((double) left, (double) bottom, 0.0D).endVertex();
-        bufferbuilder.pos((double) right, (double) bottom, 0.0D).endVertex();
-        bufferbuilder.pos((double) right, (double) top, 0.0D).endVertex();
-        bufferbuilder.pos((double) left, (double) top, 0.0D).endVertex();
+        bufferbuilder.pos(left, bottom, 0.0D).endVertex();
+        bufferbuilder.pos(right, bottom, 0.0D).endVertex();
+        bufferbuilder.pos(right, top, 0.0D).endVertex();
+        bufferbuilder.pos(left, top, 0.0D).endVertex();
         tessellator.draw();
         GlStateManager.disableColorLogic();
         GlStateManager.enableTexture2D();
@@ -359,17 +361,14 @@ public class RenderUtils {
         GlStateManager.tryBlendFuncSeparate(GlStateManager.SourceFactor.SRC_ALPHA, GlStateManager.DestFactor.ONE_MINUS_SRC_ALPHA, GlStateManager.SourceFactor.ONE, GlStateManager.DestFactor.ZERO);
         color.applyGlColor();
         vertexbuffer.begin(GL11.GL_QUADS, DefaultVertexFormats.POSITION);
-        vertexbuffer.pos((double) rect.getX(), (double) rect.getY() + rect.getHeight(), 0.0D).endVertex();
+        vertexbuffer.pos(rect.getX(), (double) rect.getY() + rect.getHeight(), 0.0D).endVertex();
         vertexbuffer.pos((double) rect.getX() + rect.getWidth(), (double) rect.getY() + rect.getHeight(), 0.0D).endVertex();
-        vertexbuffer.pos((double) rect.getX() + rect.getWidth(), (double) rect.getY(), 0.0D).endVertex();
-        vertexbuffer.pos((double) rect.getX(), (double) rect.getY(), 0.0D).endVertex();
+        vertexbuffer.pos((double) rect.getX() + rect.getWidth(), rect.getY(), 0.0D).endVertex();
+        vertexbuffer.pos(rect.getX(), rect.getY(), 0.0D).endVertex();
         tessellator.draw();
         GlStateManager.enableTexture2D();
         GlStateManager.disableBlend();
     }
-
-    private static final IGuiColor STENCIL_COLOR = new GuiColorStatic(0, 0, 0, 255);
-    private static int stencilDepth = 0;
 
     public static void startScissor(IGuiRect rect) {
         if (stencilDepth >= 255) {
@@ -767,27 +766,27 @@ public class RenderUtils {
             tooltipY = screenHeight - tooltipHeight - 4;
         }
 
-		/*int backgroundColor = 0xF0100010;
-		int borderColorStart = 0x505000FF;
-		int borderColorEnd = (borderColorStart & 0xFEFEFE) >> 1 | borderColorStart & 0xFF000000;
-
-		RenderTooltipEvent.Color colorEvent = new RenderTooltipEvent.Color(stack, textLines, tooltipX, tooltipY, font, backgroundColor, borderColorStart, borderColorEnd);
-		MinecraftForge.EVENT_BUS.post(colorEvent);
-		backgroundColor = colorEvent.getBackground();
-		borderColorStart = colorEvent.getBorderStart();
-		borderColorEnd = colorEvent.getBorderEnd();
-
-		GuiUtils.drawGradientRect(0, tooltipX - 3, tooltipY - 4, tooltipX + tooltipTextWidth + 3, tooltipY - 3, backgroundColor, backgroundColor);
-		GuiUtils.drawGradientRect(0, tooltipX - 3, tooltipY + tooltipHeight + 3, tooltipX + tooltipTextWidth + 3, tooltipY + tooltipHeight + 4, backgroundColor, backgroundColor);
-		GuiUtils.drawGradientRect(0, tooltipX - 3, tooltipY - 3, tooltipX + tooltipTextWidth + 3, tooltipY + tooltipHeight + 3, backgroundColor, backgroundColor);
-		GuiUtils.drawGradientRect(0, tooltipX - 4, tooltipY - 3, tooltipX - 3, tooltipY + tooltipHeight + 3, backgroundColor, backgroundColor);
-		GuiUtils.drawGradientRect(0, tooltipX + tooltipTextWidth + 3, tooltipY - 3, tooltipX + tooltipTextWidth + 4, tooltipY + tooltipHeight + 3, backgroundColor, backgroundColor);
-		GuiUtils.drawGradientRect(0, tooltipX - 3, tooltipY - 3 + 1, tooltipX - 3 + 1, tooltipY + tooltipHeight + 3 - 1, borderColorStart, borderColorEnd);
-		GuiUtils.drawGradientRect(0, tooltipX + tooltipTextWidth + 2, tooltipY - 3 + 1, tooltipX + tooltipTextWidth + 3, tooltipY + tooltipHeight + 3 - 1, borderColorStart, borderColorEnd);
-		GuiUtils.drawGradientRect(0, tooltipX - 3, tooltipY - 3, tooltipX + tooltipTextWidth + 3, tooltipY - 3 + 1, borderColorStart, borderColorStart);
-		GuiUtils.drawGradientRect(0, tooltipX - 3, tooltipY + tooltipHeight + 2, tooltipX + tooltipTextWidth + 3, tooltipY + tooltipHeight + 3, borderColorEnd, borderColorEnd);
-
-		MinecraftForge.EVENT_BUS.post(new RenderTooltipEvent.PostBackground(stack, textLines, tooltipX, tooltipY, font, tooltipTextWidth, tooltipHeight));*/
+//        int backgroundColor = 0xF0100010;
+//        int borderColorStart = 0x505000FF;
+//        int borderColorEnd = (borderColorStart & 0xFEFEFE) >> 1 | borderColorStart & 0xFF000000;
+//
+//        RenderTooltipEvent.Color colorEvent = new RenderTooltipEvent.Color(stack, textLines, tooltipX, tooltipY, font, backgroundColor, borderColorStart, borderColorEnd);
+//        MinecraftForge.EVENT_BUS.post(colorEvent);
+//        backgroundColor = colorEvent.getBackground();
+//        borderColorStart = colorEvent.getBorderStart();
+//        borderColorEnd = colorEvent.getBorderEnd();
+//
+//        GuiUtils.drawGradientRect(0, tooltipX - 3, tooltipY - 4, tooltipX + tooltipTextWidth + 3, tooltipY - 3, backgroundColor, backgroundColor);
+//        GuiUtils.drawGradientRect(0, tooltipX - 3, tooltipY + tooltipHeight + 3, tooltipX + tooltipTextWidth + 3, tooltipY + tooltipHeight + 4, backgroundColor, backgroundColor);
+//        GuiUtils.drawGradientRect(0, tooltipX - 3, tooltipY - 3, tooltipX + tooltipTextWidth + 3, tooltipY + tooltipHeight + 3, backgroundColor, backgroundColor);
+//        GuiUtils.drawGradientRect(0, tooltipX - 4, tooltipY - 3, tooltipX - 3, tooltipY + tooltipHeight + 3, backgroundColor, backgroundColor);
+//        GuiUtils.drawGradientRect(0, tooltipX + tooltipTextWidth + 3, tooltipY - 3, tooltipX + tooltipTextWidth + 4, tooltipY + tooltipHeight + 3, backgroundColor, backgroundColor);
+//        GuiUtils.drawGradientRect(0, tooltipX - 3, tooltipY - 3 + 1, tooltipX - 3 + 1, tooltipY + tooltipHeight + 3 - 1, borderColorStart, borderColorEnd);
+//        GuiUtils.drawGradientRect(0, tooltipX + tooltipTextWidth + 2, tooltipY - 3 + 1, tooltipX + tooltipTextWidth + 3, tooltipY + tooltipHeight + 3 - 1, borderColorStart, borderColorEnd);
+//        GuiUtils.drawGradientRect(0, tooltipX - 3, tooltipY - 3, tooltipX + tooltipTextWidth + 3, tooltipY - 3 + 1, borderColorStart, borderColorStart);
+//        GuiUtils.drawGradientRect(0, tooltipX - 3, tooltipY + tooltipHeight + 2, tooltipX + tooltipTextWidth + 3, tooltipY + tooltipHeight + 3, borderColorEnd, borderColorEnd);
+//
+//        MinecraftForge.EVENT_BUS.post(new RenderTooltipEvent.PostBackground(stack, textLines, tooltipX, tooltipY, font, tooltipTextWidth, tooltipHeight));
         PresetTexture.TOOLTIP_BG.getTexture().drawTexture(tooltipX - 4, tooltipY - 4, tooltipTextWidth + 8, tooltipHeight + 8, 0F, 1F);
         int tooltipTop = tooltipY;
 

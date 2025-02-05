@@ -13,10 +13,8 @@ import net.minecraft.nbt.NBTTagList;
 
 import java.io.File;
 import java.io.FileFilter;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
+import java.util.*;
+import java.util.stream.Collectors;
 
 public class NativeFileImporter implements IImporter {
     public static final NativeFileImporter INSTANCE = new NativeFileImporter();
@@ -43,42 +41,35 @@ public class NativeFileImporter implements IImporter {
             if (selected == null || !selected.exists()) continue;
 
             NBTTagCompound nbt = NBTConverter.JSONtoNBT_Object(JsonHelper.ReadFromFile(selected), new NBTTagCompound(), true);
-            HashMap<Integer, Integer> remappedIDs = readQuests(nbt.getTagList("questDatabase", 10), questDB);
+            HashMap<UUID, UUID> remappedIDs = readQuests(nbt.getTagList("questDatabase", 10), questDB);
             readQuestLines(nbt.getTagList("questLines", 10), lineDB, remappedIDs);
         }
     }
 
-    private HashMap<Integer, Integer> readQuests(NBTTagList json, IQuestDatabase questDB) {
-        HashMap<Integer, Integer> remappedIDs = new HashMap<>();
+    private HashMap<UUID, UUID> readQuests(NBTTagList json, IQuestDatabase questDB) {
+        HashMap<UUID, UUID> remappedIDs = new HashMap<>();
         List<IQuest> loadedQuests = new ArrayList<>();
 
         for (int i = 0; i < json.tagCount(); i++) {
             NBTTagCompound qTag = json.getCompoundTagAt(i);
-            int oldID = qTag.hasKey("questID", 99) ? qTag.getInteger("questID") : -1;
-            if (oldID < 0) continue;
+            Optional<UUID> oldID = NBTConverter.UuidValueType.QUEST.tryReadId(qTag);
+            if (!oldID.isPresent()) continue;
 
-
-            int qID = questDB.nextID();
+            UUID qID = questDB.generateKey();
             IQuest quest = questDB.createNew(qID);
             quest.readFromNBT(qTag);
-            remappedIDs.put(oldID, qID);
+            remappedIDs.put(oldID.get(), qID);
             loadedQuests.add(quest);
         }
 
         for (IQuest quest : loadedQuests) {
-            int[] oldIDs = Arrays.copyOf(quest.getRequirements(), quest.getRequirements().length);
-
-            for (int n = 0; n < oldIDs.length; n++) {
-                if (remappedIDs.containsKey(oldIDs[n])) oldIDs[n] = remappedIDs.get(oldIDs[n]);
-            }
-
-            quest.setRequirements(oldIDs);
+            quest.setRequirements(quest.getRequirements().stream().map(it -> remappedIDs.getOrDefault(it, it)).collect(Collectors.toList()));
         }
 
         return remappedIDs;
     }
 
-    private void readQuestLines(NBTTagList json, IQuestLineDatabase lineDB, HashMap<Integer, Integer> remappeIDs) {
+    private void readQuestLines(NBTTagList json, IQuestLineDatabase lineDB, HashMap<UUID, UUID> remappeIDs) {
         for (int i = 0; i < json.tagCount(); i++) {
             NBTTagCompound jql = json.getCompoundTagAt(i).copy();
 
@@ -89,12 +80,12 @@ public class NativeFileImporter implements IImporter {
 
                     int oldID = qTag.hasKey("id", 99) ? qTag.getInteger("id") : -1;
                     if (oldID < 0) continue;
-                    Integer qID = remappeIDs.get(oldID);
-                    qTag.setInteger("id", qID);
+                    UUID qID = remappeIDs.get(oldID);
+                    NBTConverter.UuidValueType.QUEST.writeId(qID, qTag);
                 }
             }
 
-            IQuestLine ql = lineDB.createNew(lineDB.nextID());
+            IQuestLine ql = lineDB.createNew(lineDB.generateKey());
             ql.readFromNBT(jql, false);
         }
     }

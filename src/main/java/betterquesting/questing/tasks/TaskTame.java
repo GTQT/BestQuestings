@@ -1,12 +1,10 @@
 package betterquesting.questing.tasks;
 
-import betterquesting.NBTUtil;
 import betterquesting.api.questing.IQuest;
 import betterquesting.api.questing.tasks.ITask;
 import betterquesting.api.utils.ItemComparison;
 import betterquesting.api2.client.gui.misc.IGuiRect;
 import betterquesting.api2.client.gui.panels.IGuiPanel;
-import betterquesting.api2.storage.DBEntry;
 import betterquesting.api2.utils.ParticipantInfo;
 import betterquesting.client.gui2.editors.tasks.GuiEditTaskTame;
 import betterquesting.client.gui2.tasks.PanelTaskTame;
@@ -30,17 +28,12 @@ import javax.annotation.Nullable;
 import java.util.*;
 
 public class TaskTame implements ITask {
-
-    private static final String DEFAULT_ENTITY = "minecraft:wolf";
-    private static final int DEFAULT_REQUIRED = 1;
-    private static final boolean DEFAULT_IGNORE_NBT = true;
-    private static final boolean DEFAULT_SUBTYPES = true;
-    private final Set<UUID> completeUsers = new TreeSet<>();
     public final HashMap<UUID, Integer> userProgress = new HashMap<>();
-    public String idName = DEFAULT_ENTITY;
-    public int required = DEFAULT_REQUIRED;
-    public boolean ignoreNBT = DEFAULT_IGNORE_NBT;
-    public boolean subtypes = DEFAULT_SUBTYPES;
+    private final Set<UUID> completeUsers = new TreeSet<>();
+    public String idName = "minecraft:wolf";
+    public int required = 1;
+    public boolean ignoreNBT = true;
+    public boolean subtypes = true;
 
     /**
      * NBT representation of the intended target. Used only for NBT comparison checks
@@ -58,7 +51,7 @@ public class TaskTame implements ITask {
     }
 
     @Override
-    public void detect(ParticipantInfo pInfo, DBEntry<IQuest> quest) {
+    public void detect(ParticipantInfo pInfo, Map.Entry<UUID, IQuest> quest) {
         final List<Tuple<UUID, Integer>> progress = getBulkProgress(pInfo.ALL_UUIDS);
         int prev = completeUsers.size();
 
@@ -66,10 +59,10 @@ public class TaskTame implements ITask {
             if (value.getSecond() >= required) setComplete(value.getFirst());
         });
 
-        if (prev != completeUsers.size()) pInfo.markDirtyParty(Collections.singletonList(quest.getID()));
+        if (prev != completeUsers.size()) pInfo.markDirtyParty(quest.getKey());
     }
 
-    public void onAnimalTamed(ParticipantInfo pInfo, DBEntry<IQuest> quest, @Nonnull EntityLivingBase entity) {
+    public void onAnimalTamed(ParticipantInfo pInfo, Map.Entry<UUID, IQuest> quest, @Nonnull EntityLivingBase entity) {
         Class<? extends Entity> subject = entity.getClass();
         ResourceLocation targetID = new ResourceLocation(idName);
         Class<? extends Entity> target = EntityList.getClass(targetID);
@@ -96,7 +89,7 @@ public class TaskTame implements ITask {
             if (np >= required) setComplete(value.getFirst());
         });
 
-        pInfo.markDirtyParty(Collections.singletonList(quest.getID()));
+        pInfo.markDirtyParty(quest.getKey());
     }
 
     @Override
@@ -123,41 +116,35 @@ public class TaskTame implements ITask {
     @Nullable
     @Override
     @SideOnly(Side.CLIENT)
-    public IGuiPanel getTaskGui(IGuiRect rect, DBEntry<IQuest> quest) {
+    public IGuiPanel getTaskGui(IGuiRect rect, Map.Entry<UUID, IQuest> quest) {
         return new PanelTaskTame(rect, this);
     }
 
     @Nullable
     @Override
     @SideOnly(Side.CLIENT)
-    public GuiScreen getTaskEditor(GuiScreen parent, DBEntry<IQuest> quest) {
+    public GuiScreen getTaskEditor(GuiScreen parent, Map.Entry<UUID, IQuest> quest) {
         return new GuiEditTaskTame(parent, quest, this);
     }
 
-    @Deprecated
     @Override
-    public NBTTagCompound writeToNBT(NBTTagCompound nbt) {
-        return writeToNBT(nbt, false);
+    public NBTTagCompound writeToNBT(NBTTagCompound json) {
+        json.setString("target", idName);
+        json.setInteger("required", required);
+        json.setBoolean("subtypes", subtypes);
+        json.setBoolean("ignoreNBT", ignoreNBT);
+        json.setTag("targetNBT", targetTags);
+
+        return json;
     }
 
     @Override
-    public NBTTagCompound writeToNBT(NBTTagCompound nbt, boolean reduce) {
-        NBTUtil.setString(nbt, "target", idName, DEFAULT_ENTITY, reduce);
-        NBTUtil.setInteger(nbt, "required", required, DEFAULT_REQUIRED, reduce);
-        NBTUtil.setBoolean(nbt, "subtypes", subtypes, DEFAULT_SUBTYPES, reduce);
-        NBTUtil.setBoolean(nbt, "ignoreNBT", ignoreNBT, DEFAULT_IGNORE_NBT, reduce);
-        NBTUtil.setTag(nbt, "targetNBT", targetTags, reduce);
-
-        return nbt;
-    }
-
-    @Override
-    public void readFromNBT(NBTTagCompound nbt) {
-        idName = NBTUtil.getString(nbt, "target", DEFAULT_ENTITY);
-        required = NBTUtil.getInteger(nbt, "required", DEFAULT_REQUIRED);
-        subtypes = NBTUtil.getBoolean(nbt, "subtypes", DEFAULT_SUBTYPES);
-        ignoreNBT = NBTUtil.getBoolean(nbt, "ignoreNBT", DEFAULT_IGNORE_NBT);
-        targetTags = nbt.getCompoundTag("targetNBT");
+    public void readFromNBT(NBTTagCompound json) {
+        idName = json.getString("target");
+        required = json.getInteger("required");
+        subtypes = json.getBoolean("subtypes");
+        ignoreNBT = json.getBoolean("ignoreNBT");
+        targetTags = json.getCompoundTag("targetNBT");
     }
 
     @Override
@@ -232,7 +219,7 @@ public class TaskTame implements ITask {
     }
 
     private List<Tuple<UUID, Integer>> getBulkProgress(@Nonnull List<UUID> uuids) {
-        if (uuids.size() <= 0) return Collections.emptyList();
+        if (uuids.isEmpty()) return Collections.emptyList();
         List<Tuple<UUID, Integer>> list = new ArrayList<>();
         uuids.forEach((key) -> list.add(new Tuple<>(key, getUsersProgress(key))));
         return list;

@@ -6,7 +6,6 @@ import betterquesting.api.questing.tasks.ITask;
 import betterquesting.api.utils.ItemComparison;
 import betterquesting.api2.client.gui.misc.IGuiRect;
 import betterquesting.api2.client.gui.panels.IGuiPanel;
-import betterquesting.api2.storage.DBEntry;
 import betterquesting.api2.utils.ParticipantInfo;
 import betterquesting.client.gui2.editors.tasks.GuiEditTaskHunt;
 import betterquesting.client.gui2.tasks.PanelTaskHunt;
@@ -71,17 +70,17 @@ public class TaskHunt implements ITask {
     }
 
     @Override
-    public void detect(ParticipantInfo pInfo, DBEntry<IQuest> quest) {
+    public void detect(ParticipantInfo pInfo, Map.Entry<UUID, IQuest> quest) {
         final List<Tuple<UUID, Integer>> progress = getBulkProgress(pInfo.ALL_UUIDS);
 
         progress.forEach((value) -> {
             if (value.getSecond() >= required) setComplete(value.getFirst());
         });
 
-        pInfo.markDirtyParty(Collections.singletonList(quest.getID()));
+        pInfo.markDirtyParty(quest.getKey());
     }
 
-    public void onKilledByPlayer(ParticipantInfo pInfo, DBEntry<IQuest> quest, @Nonnull EntityLivingBase entity, DamageSource source) {
+    public void onKilledByPlayer(ParticipantInfo pInfo, Map.Entry<UUID, IQuest> quest, @Nonnull EntityLivingBase entity, DamageSource source) {
         if (damageType.length() > 0 && (source == null || !damageType.equalsIgnoreCase(source.damageType))) return;
 
         Class<? extends Entity> subject = entity.getClass();
@@ -110,7 +109,7 @@ public class TaskHunt implements ITask {
             if (np >= required) setComplete(value.getFirst());
         });
 
-        pInfo.markDirtyParty(Collections.singletonList(quest.getID()));
+        pInfo.markDirtyParty(quest.getKey());
     }
 
     @Deprecated
@@ -218,13 +217,13 @@ public class TaskHunt implements ITask {
      */
     @Override
     @SideOnly(Side.CLIENT)
-    public GuiScreen getTaskEditor(GuiScreen parent, DBEntry<IQuest> quest) {
+    public GuiScreen getTaskEditor(GuiScreen parent, Map.Entry<UUID, IQuest> quest) {
         return new GuiEditTaskHunt(parent, quest, this);
     }
 
     @Override
     @SideOnly(Side.CLIENT)
-    public IGuiPanel getTaskGui(IGuiRect rect, DBEntry<IQuest> quest) {
+    public IGuiPanel getTaskGui(IGuiRect rect, Map.Entry<UUID, IQuest> quest) {
         return new PanelTaskHunt(rect, this);
     }
 

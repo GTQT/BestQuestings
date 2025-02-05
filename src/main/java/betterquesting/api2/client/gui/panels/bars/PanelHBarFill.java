@@ -60,13 +60,13 @@ public class PanelHBarFill implements IBarFill {
     }
 
     @Override
-    public void setEnabled(boolean state) {
-        this.enabled = state;
+    public boolean isEnabled() {
+        return this.enabled;
     }
 
     @Override
-    public boolean isEnabled() {
-        return this.enabled;
+    public void setEnabled(boolean state) {
+        this.enabled = state;
     }
 
     @Override

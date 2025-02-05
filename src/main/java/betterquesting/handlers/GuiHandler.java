@@ -35,12 +35,10 @@ public class GuiHandler implements IGuiHandler {
             return new GuiQuestHelp(null);
         } else if (ID == 2) {
             return new GuiEditLootGroup(null);
-        }
-        else if(ID == 3) {
-            if(BQ_Settings.useBookmark && GuiHome.bookmark != null) {
+        } else if (ID == 3) {
+            if (BQ_Settings.useBookmark && GuiHome.bookmark != null) {
                 return GuiHome.bookmark;
-            }
-            else {
+            } else {
                 return new GuiHome(null);
             }
         }

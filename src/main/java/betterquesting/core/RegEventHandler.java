@@ -28,6 +28,11 @@ public class RegEventHandler {
 
     private static boolean setupRecipes = false;
 
+    static {
+        registerItems();
+        registerBlock(BetterQuesting.submitStation, "submit_station");
+    }
+
     @SubscribeEvent
     @SideOnly(Side.CLIENT)
     public static void registerModelEvent(ModelRegistryEvent event) {
@@ -88,10 +93,5 @@ public class RegEventHandler {
         addShapelessRecipe("life_quarter_0", "questing", new ItemStack(BetterQuesting.extraLife, 2, 2), new ItemStack(BetterQuesting.extraLife, 1, 1));
 
         setupRecipes = true;
-    }
-
-    static {
-        registerItems();
-        registerBlock(BetterQuesting.submitStation, "submit_station");
     }
 }

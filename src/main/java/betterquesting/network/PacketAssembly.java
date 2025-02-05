@@ -16,18 +16,15 @@ import java.util.zip.GZIPInputStream;
 
 public final class PacketAssembly {
     public static final PacketAssembly INSTANCE = new PacketAssembly();
-
+    private static final int bufSize = 20480; // 20KB
     // TODO: Allow for simultaneous packet assembly (may not be necessary)
     // TODO: Implement PROPER thread safety that doesn't cause dirty read/writes
     // TODO: Add a scheduler to bulk up multiple data packets to send on the next tick (also may be unnecessary)
     // Player assigned packet buffers
     private final HashMap<UUID, byte[]> buffer = new HashMap<>();
-
+    //private int id = 0;
     // Internal server packet buffer (server to server or client side)
     private byte[] serverBuf = null;
-    //private int id = 0;
-
-    private static final int bufSize = 20480; // 20KB
 
     public List<NBTTagCompound> splitPacket(NBTTagCompound tags) {
         try {
@@ -83,10 +80,9 @@ public final class PacketAssembly {
         }
 
         System.arraycopy(data, 0, tmp, index, data.length);
-		/*for(int i = 0; i < data.length && index + i < size; i++)
-		{
-			tmp[index + i] = data[i];
-		}*/
+//        for(int i = 0; i < data.length && index + i < size; i++) {
+//            tmp[index + i] = data[i];
+//        }
 
         if (end) {
             clearBuffer(owner);
@@ -120,7 +116,7 @@ public final class PacketAssembly {
         } else {
             synchronized (buffer) {
                 if (buffer.containsKey(owner)) {
-                    throw new IllegalStateException("Attepted to start more than one BQ packet assembly for UUID " + owner.toString());
+                    throw new IllegalStateException("Attepted to start more than one BQ packet assembly for UUID " + owner);
                 }
 
                 buffer.put(owner, value);

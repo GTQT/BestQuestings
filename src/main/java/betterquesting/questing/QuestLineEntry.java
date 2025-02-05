@@ -39,6 +39,13 @@ public class QuestLineEntry implements IQuestLineEntry {
     }
 
     @Override
+    @Deprecated
+    public void setSize(int size) {
+        this.sizeX = size;
+        this.sizeY = size;
+    }
+
+    @Override
     public int getSizeX() {
         return this.sizeX;
     }
@@ -62,13 +69,6 @@ public class QuestLineEntry implements IQuestLineEntry {
     public void setPosition(int posX, int posY) {
         this.posX = posX;
         this.posY = posY;
-    }
-
-    @Override
-    @Deprecated
-    public void setSize(int size) {
-        this.sizeX = size;
-        this.sizeY = size;
     }
 
     @Override

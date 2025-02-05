@@ -7,14 +7,10 @@ import betterquesting.api.questing.IQuestLine;
 import betterquesting.api.storage.BQ_Settings;
 import betterquesting.api.utils.JsonHelper;
 import betterquesting.api.utils.NBTConverter;
-import betterquesting.api2.storage.DBEntry;
 import betterquesting.api2.utils.QuestTranslation;
 import betterquesting.commands.QuestCommandBase;
 import betterquesting.core.BetterQuesting;
-import betterquesting.core.ModReference;
 import betterquesting.handlers.SaveLoadHandler;
-import betterquesting.legacy.ILegacyLoader;
-import betterquesting.legacy.LegacyLoaderRegistry;
 import betterquesting.network.handlers.NetChapterSync;
 import betterquesting.network.handlers.NetQuestSync;
 import betterquesting.network.handlers.NetSettingSync;
@@ -23,7 +19,9 @@ import betterquesting.questing.QuestInstance;
 import betterquesting.questing.QuestLineDatabase;
 import betterquesting.storage.QuestSettings;
 import com.google.common.collect.ListMultimap;
+import com.google.common.collect.Maps;
 import com.google.common.collect.MultimapBuilder;
+import com.google.common.collect.SortedSetMultimap;
 import com.google.gson.JsonObject;
 import net.minecraft.command.CommandBase;
 import net.minecraft.command.CommandException;
@@ -36,113 +34,48 @@ import net.minecraftforge.common.util.Constants;
 import net.minecraftforge.server.permission.DefaultPermissionLevel;
 import org.apache.commons.io.FileUtils;
 import org.apache.logging.log4j.Level;
-import org.jetbrains.annotations.Nullable;
 
+import javax.annotation.Nullable;
 import java.io.File;
 import java.io.IOException;
+import java.io.OutputStreamWriter;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
 import java.util.function.BiFunction;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Stream;
 
 public class QuestCommandDefaults extends QuestCommandBase {
     public static final String DEFAULT_FILE = "DefaultQuests";
+    public static final String LANG_FILE = "en_US.lang";
 
     public static final String SETTINGS_FILE = "QuestSettings.json";
-
-    public static final String QUEST_LINE_DIR = "QuestLines";
+    public static final String QUEST_LINES_FILE = "QuestLines.json";
     public static final String QUEST_DIR = "Quests";
-    public static final String NO_QUEST_LINE_DIRECTORY = "NoQuestLine";
     public static final String MULTI_QUEST_LINE_DIRECTORY = "MultipleQuestLine";
+    public static final String NO_QUEST_LINE_DIRECTORY = "NoQuestLine";
 
-    public static final int FILE_NAME_MAX_LENGTH = 16;
-
-    @Override
-    public String getUsageSuffix() {
-        return "[save|load|set|saveLegacy|loadLegacy] [file_name]";
-    }
-
-    @Override
-    public boolean validArgs(String[] args) {
-        return args.length == 2 || args.length == 3;
-    }
-
-    @Override
-    public List<String> autoComplete(MinecraftServer server, ICommandSender sender, String[] args) {
-        if (args.length == 2) {
-            return CommandBase.getListOfStringsMatchingLastWord(args, "save", "load", "set", "saveLegacy", "loadLegacy");
-        } else if (args.length == 3) {
-            return Collections.singletonList("DefaultQuests");
+    /**
+     * Helper method that handles having null sender.
+     */
+    private static void sendChatMessage(
+            @Nullable ICommandSender sender, String translationKey, Object... args) {
+        if (sender == null) {
+            return;
         }
-
-        return Collections.emptyList();
+        sender.sendMessage(new TextComponentTranslation(translationKey, args));
     }
 
-    @Override
-    public String getCommand() {
-        return "default";
-    }
-
-    @Override
-    public void runCommand(MinecraftServer server, CommandBase command, ICommandSender sender, String[] args) throws CommandException {
-        String databaseName;
-        File dataDir;
-        // The location of the legacy single huge file.
-        File legacyFile;
-
-        if (args.length == 3 && !args[2].equalsIgnoreCase(DEFAULT_FILE)) {
-            databaseName = args[2];
-            dataDir = new File(BQ_Settings.defaultDir, "saved_quests/" + args[2]);
-            legacyFile = new File(BQ_Settings.defaultDir, "saved_quests/" + args[2] + ".json");
-        } else {
-            databaseName = DEFAULT_FILE;
-            dataDir = new File(BQ_Settings.defaultDir, DEFAULT_FILE);
-            legacyFile = new File(BQ_Settings.defaultDir, DEFAULT_FILE + ".json");
-        }
-
-        if (args[1].equalsIgnoreCase("save")) {
-            save(sender, databaseName, dataDir);
-        } else if (args[1].equalsIgnoreCase("saveLegacy")) {
-            saveLegacy(sender, databaseName, legacyFile);
-        } else if (args[1].equalsIgnoreCase("load")) {
-            load(sender, databaseName, dataDir, false);
-        } else if (args[1].equalsIgnoreCase("loadLegacy")) {
-            loadLegacy(sender, databaseName, legacyFile, false);
-        } else if (args[1].equalsIgnoreCase("set") && args.length == 3) {
-            if (!dataDir.exists() && legacyFile.exists()) {
-                setLegacy(sender, databaseName, legacyFile);
-            } else {
-                set(sender, databaseName, dataDir);
-            }
-        } else {
-            throw getException(command);
-        }
-    }
-
-    public static void save(@Nullable ICommandSender sender, String databaseName, File dataDir) {
-
-        BiFunction<String, Integer, String> buildFileName =
-                (name, id) -> {
-                    String formattedName = removeChatFormatting(name).replaceAll("[^a-zA-Z]", "");
-
-                    if (formattedName.length() > FILE_NAME_MAX_LENGTH) {
-                        formattedName = formattedName.substring(0, FILE_NAME_MAX_LENGTH);
-                    }
-
-                    if (!BQ_Settings.saveQuestsWithNames) {
-                        return String.valueOf(id);
-                    }
-                    return String.format("%s-%s", formattedName, id);
-                };
-
+    public static void save(@Nullable ICommandSender sender, @Nullable String databaseName, File dataDir) {
+        BiFunction<String, String, String> buildFileName =
+                (name, id) -> name.replaceAll("[^a-zA-Z0-9]", "") + "-" + id;
 
         File settingsFile = new File(dataDir, SETTINGS_FILE);
         if (dataDir.exists()) {
             if (!settingsFile.exists()) {
+                // This might not be a BetterQuesting database; we should be careful.
                 QuestingAPI.getLogger().log(Level.ERROR, "Directory exists, but isn't a database\n{}", dataDir);
                 sendChatMessage(sender, "betterquesting.cmd.error");
                 return;
@@ -156,7 +89,6 @@ public class QuestCommandDefaults extends QuestCommandBase {
                 return;
             }
         }
-
         if (!dataDir.mkdirs()) {
             QuestingAPI.getLogger().log(Level.ERROR, "Failed to create directory\n{}", dataDir);
             sendChatMessage(sender, "betterquesting.cmd.error");
@@ -164,75 +96,135 @@ public class QuestCommandDefaults extends QuestCommandBase {
         }
 
         boolean editMode = QuestSettings.INSTANCE.getProperty(NativeProps.EDIT_MODE);
-        // Don't write edit mode to json
+        // Don't write editmode to json
         QuestSettings.INSTANCE.setProperty(NativeProps.EDIT_MODE, false);
-        NBTTagCompound settingsTag = QuestSettings.INSTANCE.writeToNBT(new NBTTagCompound(), true);
+        NBTTagCompound settingsTag = QuestSettings.INSTANCE.writeToNBT(new NBTTagCompound());
         settingsTag.setString("format", BetterQuesting.FORMAT);
         JsonHelper.WriteToFile(settingsFile, NBTConverter.NBTtoJSON_Compound(settingsTag, new JsonObject(), true));
-        // Turn on edit mode if it was on before
+        // And restore back
         QuestSettings.INSTANCE.setProperty(NativeProps.EDIT_MODE, editMode);
 
-        File questLineDir = new File(dataDir, QUEST_LINE_DIR);
-        if (!questLineDir.exists() && !questLineDir.mkdirs()) {
-            QuestingAPI.getLogger().log(Level.ERROR, "Failed to create directories\n{}", questLineDir);
-            sendChatMessage(sender, "betterquesting.cmd.error");
-            return;
-        }
-        ListMultimap<Integer, IQuestLine> questToQuestLineMultimap =
+        File questLinesFile = new File(dataDir, QUEST_LINES_FILE);
+        NBTTagCompound questLinesTag = new NBTTagCompound();
+        questLinesTag.setTag("questLines", QuestLineDatabase.INSTANCE.writeToNBT(new NBTTagList(), null));
+        JsonHelper.WriteToFile(questLinesFile, NBTConverter.NBTtoJSON_Compound(questLinesTag, new JsonObject(), true));
+
+        ListMultimap<UUID, IQuestLine> questToQuestLineMultimap =
                 MultimapBuilder.hashKeys().arrayListValues().build();
-
-        for (DBEntry<IQuestLine> entry : QuestLineDatabase.INSTANCE.getEntries()) {
-            int questLineId = entry.getID();
-            IQuestLine questLine = entry.getValue();
-            questLine.getEntries().forEach(quest -> questToQuestLineMultimap.put(quest.getID(), questLine));
-            String questLineName = questLine.getProperty(NativeProps.NAME);
-            String questLineNameTranslated = QuestTranslation.translate(questLineName);
-
-            File questLineFile = new File(questLineDir, buildFileName.apply(questLineNameTranslated, questLineId) + ".json");
-            NBTTagCompound questLineTag = questLine.writeToNBT(new NBTTagCompound(), null, true);
-            questLineTag.setInteger("lineID", questLineId);
-            questLineTag.setInteger("order", QuestLineDatabase.INSTANCE.getOrderIndex(entry.getID()));
-            JsonHelper.WriteToFile(questLineFile, NBTConverter.NBTtoJSON_Compound(questLineTag, new JsonObject(), true));
+        for (IQuestLine questLine : QuestLineDatabase.INSTANCE.values()) {
+            questLine.keySet().forEach(key -> questToQuestLineMultimap.put(key, questLine));
         }
-        ;
 
+        SortedMap<UUID, IQuest> questsInMultipleQuestLines = new TreeMap<>();
+        SortedMap<UUID, IQuest> questsInZeroQuestLines = new TreeMap<>();
 
-        for (DBEntry<IQuest> entry : QuestDatabase.INSTANCE.getEntries()) {
-            int questId = entry.getID();
+        for (Map.Entry<UUID, IQuest> entry : QuestDatabase.INSTANCE.entrySet()) {
+            UUID questId = entry.getKey();
             IQuest quest = entry.getValue();
             List<IQuestLine> questLines = questToQuestLineMultimap.get(questId);
 
             File questDir = new File(dataDir, QUEST_DIR);
             switch (questLines.size()) {
                 case 0:
+                    questsInZeroQuestLines.put(questId, quest);
                     questDir = new File(questDir, NO_QUEST_LINE_DIRECTORY);
                     break;
 
                 case 1:
                     IQuestLine questLine = questLines.get(0);
-                    int questLineId = QuestLineDatabase.INSTANCE.getID(questLine);
+                    UUID questLineId = QuestLineDatabase.INSTANCE.lookupKey(questLine);
                     String questLineName = questLine.getProperty(NativeProps.NAME);
-                    String translatedLineName = QuestTranslation.translate(questLineName);
-                    questDir = new File(questDir, buildFileName.apply(translatedLineName, questLineId));
+                    questDir = new File(questDir, buildFileName.apply(questLineName, questLineId.toString()));
                     break;
-                default:
-                    questDir = new File(questDir, MULTI_QUEST_LINE_DIRECTORY);
 
+                default:
+                    questsInMultipleQuestLines.put(questId, quest);
+                    questDir = new File(questDir, MULTI_QUEST_LINE_DIRECTORY);
+                    break;
             }
 
             String questName = quest.getProperty(NativeProps.NAME);
-            String translatedQuestName = QuestTranslation.translate(questName);
-
-            File questFile = new File(questDir, buildFileName.apply(translatedQuestName, questId) + ".json");
+            File questFile = new File(questDir, buildFileName.apply(questName, questId.toString()) + ".json");
             if (!questFile.exists() && !questFile.mkdirs()) {
                 QuestingAPI.getLogger().log(Level.ERROR, "Failed to create directories\n{}", questFile);
                 sendChatMessage(sender, "betterquesting.cmd.error");
                 return;
             }
 
-            NBTTagCompound questTag = quest.writeToNBT(new NBTTagCompound(), true);
-            questTag.setInteger("questID", questId);
+            NBTTagCompound questTag = quest.writeToNBT(new NBTTagCompound());
+            NBTConverter.UuidValueType.QUEST.writeId(questId, questTag);
             JsonHelper.WriteToFile(questFile, NBTConverter.NBTtoJSON_Compound(questTag, new JsonObject(), true));
+        }
+
+        File langFile = new File(dataDir, LANG_FILE);
+        try (
+                OutputStreamWriter writer =
+                        new OutputStreamWriter(Files.newOutputStream(langFile.toPath()))) {
+
+            Function<String, String> removeNewlines = s -> s.replaceAll("\n", "");
+            Function<String, String> escapeLangString =
+                    s -> s.replaceAll("%", "%%").replaceAll("\n", "%n");
+
+            Consumer<IQuest> writeQuest =
+                    quest -> {
+                        UUID questId = QuestDatabase.INSTANCE.lookupKey(quest);
+
+                        try {
+                            writer.write(
+                                    String.format(
+                                            "\n# Quest: %s\n",
+                                            removeNewlines.apply(quest.getProperty(NativeProps.NAME))));
+                            writer.write(
+                                    String.format(
+                                            "%s=%s\n",
+                                            QuestTranslation.buildQuestNameKey(questId),
+                                            escapeLangString.apply(quest.getProperty(NativeProps.NAME))));
+                            writer.write(
+                                    String.format(
+                                            "%s=%s\n",
+                                            QuestTranslation.buildQuestDescriptionKey(questId),
+                                            escapeLangString.apply(quest.getProperty(NativeProps.DESC))));
+                        } catch (IOException e) {
+                            throw new RuntimeException(e);
+                        }
+                    };
+
+            writer.write("### Quest Lines ###\n");
+
+            for (Map.Entry<UUID, IQuestLine> entry : QuestLineDatabase.INSTANCE.getOrderedEntries()) {
+                UUID questLineId = entry.getKey();
+                IQuestLine questLine = entry.getValue();
+
+                writer.write(
+                        String.format(
+                                "\n\n## Quest Line: %s\n",
+                                removeNewlines.apply(questLine.getProperty(NativeProps.NAME))));
+                writer.write(
+                        String.format(
+                                "%s=%s\n",
+                                QuestTranslation.buildQuestLineNameKey(questLineId),
+                                escapeLangString.apply(questLine.getProperty(NativeProps.NAME))));
+                writer.write(
+                        String.format(
+                                "%s=%s\n",
+                                QuestTranslation.buildQuestLineDescriptionKey(questLineId),
+                                escapeLangString.apply(questLine.getProperty(NativeProps.DESC))));
+
+                SortedMap<UUID, IQuest> quests =
+                        new TreeMap<>(QuestDatabase.INSTANCE.filterKeys(questLine.keySet()));
+                orderByRequirements(quests).forEach(writeQuest);
+            }
+
+            writer.write("\n\n### Quests in multiple quest lines ###\n");
+            orderByRequirements(questsInMultipleQuestLines).forEach(writeQuest);
+
+            writer.write("\n\n### Quests in no quest lines ###\n");
+            orderByRequirements(questsInZeroQuestLines).forEach(writeQuest);
+
+        } catch (IOException e) {
+            QuestingAPI.getLogger().log(Level.ERROR, "Failed to create file\n" + langFile, e);
+            sendChatMessage(sender, "betterquesting.cmd.error");
+            return;
         }
 
         if (databaseName != null && !databaseName.equalsIgnoreCase(DEFAULT_FILE)) {
@@ -242,24 +234,27 @@ public class QuestCommandDefaults extends QuestCommandBase {
         }
     }
 
-    public static void saveLegacy(@Nullable ICommandSender sender, String databaseName, File legacyFile) {
+    /**
+     * This is unused by default, but available if needed. The single file is easier to search.
+     */
+    public static void saveLegacy(@Nullable ICommandSender sender, @Nullable String databaseName, File legacyFile) {
         boolean editMode = QuestSettings.INSTANCE.getProperty(NativeProps.EDIT_MODE);
 
         NBTTagCompound base = new NBTTagCompound();
-
+        // Don't write editmode to json
         QuestSettings.INSTANCE.setProperty(NativeProps.EDIT_MODE, false);
-        base.setTag("questSettings", QuestSettings.INSTANCE.writeToNBT(new NBTTagCompound(), true));
+        base.setTag("questSettings", QuestSettings.INSTANCE.writeToNBT(new NBTTagCompound()));
+        // And restore back
         QuestSettings.INSTANCE.setProperty(NativeProps.EDIT_MODE, editMode);
-        base.setTag("questDatabase", QuestDatabase.INSTANCE.writeToNBT(new NBTTagList(), null, true));
-        base.setTag("questLines", QuestLineDatabase.INSTANCE.writeToNBT(new NBTTagList(), null, true));
+        base.setTag("questDatabase", QuestDatabase.INSTANCE.writeToNBT(new NBTTagList(), null));
+        base.setTag("questLines", QuestLineDatabase.INSTANCE.writeToNBT(new NBTTagList(), null));
         base.setString("format", BetterQuesting.FORMAT);
-        base.setString("build", ModReference.VERSION);
         JsonHelper.WriteToFile(legacyFile, NBTConverter.NBTtoJSON_Compound(base, new JsonObject(), true));
 
-        if (databaseName != null && databaseName.equalsIgnoreCase(DEFAULT_FILE)) {
-            sender.sendMessage(new TextComponentTranslation("betterquesting.cmd.default.save2", databaseName + ".json"));
+        if (databaseName != null && !databaseName.equalsIgnoreCase(DEFAULT_FILE)) {
+            sendChatMessage(sender, "betterquesting.cmd.default.save2", databaseName + ".json");
         } else {
-            sender.sendMessage(new TextComponentTranslation("betterquesting.cmd.default.save"));
+            sendChatMessage(sender, "betterquesting.cmd.default.save");
         }
     }
 
@@ -270,7 +265,9 @@ public class QuestCommandDefaults extends QuestCommandBase {
         }
 
         Function<File, NBTTagCompound> readNbt =
-                file -> NBTConverter.JSONtoNBT_Object(JsonHelper.ReadFromFile(file), new NBTTagCompound(), true);
+                file ->
+                        NBTConverter.JSONtoNBT_Object(
+                                JsonHelper.ReadFromFile(file), new NBTTagCompound(), true);
 
         boolean editMode = QuestSettings.INSTANCE.getProperty(NativeProps.EDIT_MODE);
         boolean hardMode = QuestSettings.INSTANCE.getProperty(NativeProps.HARDCORE);
@@ -283,56 +280,28 @@ public class QuestCommandDefaults extends QuestCommandBase {
             return;
         }
         QuestSettings.INSTANCE.readFromNBT(readNbt.apply(settingsFile));
-        File questLineDir = new File(dataDir, QUEST_LINE_DIR);
-        NBTTagList questLineDatabase = new NBTTagList();
-        List<File> sortedQuestLineFiles = new ArrayList<>();
-        try (Stream<Path> paths = Files.walk(questLineDir.toPath())) {
-            paths.filter(Files::isRegularFile).forEach(
-                    path -> {
-                        File questLineFile = path.toFile();
-                        sortedQuestLineFiles.add(questLineFile);
-                    }
-            );
-        } catch (IOException e) {
-            QuestingAPI.getLogger().log(Level.ERROR, "Failed to traverse directory\n" + questLineDir, e);
+
+        File questLinesFile = new File(dataDir, QUEST_LINES_FILE);
+        if (!questLinesFile.exists()) {
+            QuestingAPI.getLogger().log(Level.ERROR, "Failed to find file\n{}", questLinesFile);
             sendChatMessage(sender, "betterquesting.cmd.error");
             return;
         }
-
-        if (!sortedQuestLineFiles.isEmpty()) {
-            sortedQuestLineFiles.sort((file1, file2) -> {
-                int id1 = Integer.parseInt(file1.getName().replaceAll("[^0-9]+", ""));
-                int id2 = Integer.parseInt(file2.getName().replaceAll("[^0-9]+", ""));
-                return id1 - id2;
-            });
-        }
-
-        sortedQuestLineFiles.stream()
-                .map(readNbt)
-                .forEach(questLineDatabase::appendTag);
-
-        QuestLineDatabase.INSTANCE.readFromNBT(questLineDatabase, false);
-        QuestDatabase.INSTANCE.reset();
+        NBTTagCompound questLinesTag = readNbt.apply(questLinesFile);
+        QuestLineDatabase.INSTANCE.readFromNBT(questLinesTag.getTagList("questLines", Constants.NBT.TAG_COMPOUND), false);
 
         File questDir = new File(dataDir, QUEST_DIR);
+        QuestDatabase.INSTANCE.clear();
         try (Stream<Path> paths = Files.walk(questDir.toPath())) {
             paths.filter(Files::isRegularFile).forEach(
                     path -> {
                         File questFile = path.toFile();
                         NBTTagCompound questTag = readNbt.apply(questFile);
-                        int questId = questTag.hasKey("questID", Constants.NBT.TAG_ANY_NUMERIC) ? questTag.getInteger("questID") : -1;
-
-                        if (questId < 0) {
-                            questId = Integer.parseInt(questFile.getName().replaceAll("[^0-9]+", ""));
-                        }
-
-                        if (questId < 0) {
-                            return;
-                        }
+                        UUID questId = NBTConverter.UuidValueType.QUEST.readId(questTag);
 
                         IQuest quest = new QuestInstance();
                         quest.readFromNBT(questTag);
-                        QuestDatabase.INSTANCE.add(questId, quest);
+                        QuestDatabase.INSTANCE.put(questId, quest);
                     }
             );
         } catch (IOException e) {
@@ -355,7 +324,7 @@ public class QuestCommandDefaults extends QuestCommandBase {
         }
 
         NetSettingSync.sendSync(null);
-        NetQuestSync.quickSync(-1, true, true);
+        NetQuestSync.quickSync(null, true, true);
         NetChapterSync.sendSync(null, null);
         SaveLoadHandler.INSTANCE.markDirty();
     }
@@ -364,21 +333,14 @@ public class QuestCommandDefaults extends QuestCommandBase {
         if (legacyFile.exists()) {
             boolean editMode = QuestSettings.INSTANCE.getProperty(NativeProps.EDIT_MODE);
             boolean hardMode = QuestSettings.INSTANCE.getProperty(NativeProps.HARDCORE);
-
             NBTTagList jsonP = QuestDatabase.INSTANCE.writeProgressToNBT(new NBTTagList(), null);
 
             JsonObject j1 = JsonHelper.ReadFromFile(legacyFile);
             NBTTagCompound nbt1 = NBTConverter.JSONtoNBT_Object(j1, new NBTTagCompound(), true);
 
-            ILegacyLoader loader = LegacyLoaderRegistry.getLoader(nbt1.hasKey("format", 8) ? nbt1.getString("format") : "0.0.0");
-
-            if (loader == null) {
-                QuestSettings.INSTANCE.readFromNBT(nbt1.getCompoundTag("questSettings"));
-                QuestDatabase.INSTANCE.readFromNBT(nbt1.getTagList("questDatabase", 10), false);
-                QuestLineDatabase.INSTANCE.readFromNBT(nbt1.getTagList("questLines", 10), false);
-            } else {
-                loader.readFromJson(j1);
-            }
+            QuestSettings.INSTANCE.readFromNBT(nbt1.getCompoundTag("questSettings"));
+            QuestDatabase.INSTANCE.readFromNBT(nbt1.getTagList("questDatabase", Constants.NBT.TAG_COMPOUND), false);
+            QuestLineDatabase.INSTANCE.readFromNBT(nbt1.getTagList("questLines", Constants.NBT.TAG_COMPOUND), false);
 
             if (!loadWorldSettings) {
                 // Don't load world-specific settings, so restore them from the snapshot we took.
@@ -387,14 +349,14 @@ public class QuestCommandDefaults extends QuestCommandBase {
                 QuestSettings.INSTANCE.setProperty(NativeProps.HARDCORE, hardMode);
             }
 
-            if (databaseName != null && !databaseName.equalsIgnoreCase("DefaultQuests")) {
+            if (databaseName != null && !databaseName.equalsIgnoreCase(DEFAULT_FILE)) {
                 sendChatMessage(sender, "betterquesting.cmd.default.load2", databaseName + ".json");
             } else {
                 sendChatMessage(sender, "betterquesting.cmd.default.load");
             }
 
             NetSettingSync.sendSync(null);
-            NetQuestSync.quickSync(-1, true, true);
+            NetQuestSync.quickSync(null, true, true);
             NetChapterSync.sendSync(null, null);
             SaveLoadHandler.INSTANCE.markDirty();
         } else {
@@ -446,6 +408,138 @@ public class QuestCommandDefaults extends QuestCommandBase {
             sendChatMessage(sender, "betterquesting.cmd.default.none");
         }
     }
+
+    /**
+     * Helper method which tries to order quests by their requirements,
+     * for ordered output to {@code en_US.lang}.
+     *
+     * <p>This method needs to be stable, to prevent noisy Git changes in {@code en_US.lang}.
+     * The input is required to be sorted by quest ID, to help with stability.
+     */
+    private static List<IQuest> orderByRequirements(SortedMap<UUID, IQuest> quests) {
+        SortedSetMultimap<Map.Entry<UUID, IQuest>, Map.Entry<UUID, IQuest>> predecessors =
+                MultimapBuilder
+                        .hashKeys()
+                        .<Map.Entry<UUID, IQuest>>treeSetValues(Map.Entry.comparingByKey())
+                        .build();
+        SortedSetMultimap<Map.Entry<UUID, IQuest>, Map.Entry<UUID, IQuest>> successors =
+                MultimapBuilder
+                        .hashKeys()
+                        .<Map.Entry<UUID, IQuest>>treeSetValues(Map.Entry.comparingByKey())
+                        .build();
+
+        quests.entrySet().forEach(
+                entry -> {
+                    for (UUID requirementId : entry.getValue().getRequirements()) {
+                        IQuest requirement = quests.get(requirementId);
+                        if (requirement == null) {
+                            continue;
+                        }
+
+                        Map.Entry<UUID, IQuest> requirementEntry =
+                                Maps.immutableEntry(requirementId, requirement);
+                        predecessors.put(entry, requirementEntry);
+                        successors.put(requirementEntry, entry);
+                    }
+                });
+
+        List<IQuest> orderedQuests = new ArrayList<>(quests.size());
+        // Used to track which quests have already been added, to avoid adding duplicates.
+        Set<Map.Entry<UUID, IQuest>> addedQuests = new HashSet<>(quests.size());
+
+        Consumer<Map.Entry<UUID, IQuest>> addQuest =
+                new Consumer<Map.Entry<UUID, IQuest>>() {
+                    @Override
+                    public void accept(Map.Entry<UUID, IQuest> entry) {
+                        if (addedQuests.contains(entry)) {
+                            return;
+                        }
+                        addedQuests.add(entry);
+
+                        for (Map.Entry<UUID, IQuest> predecessor : predecessors.get(entry)) {
+                            accept(predecessor);
+                        }
+                        orderedQuests.add(entry.getValue());
+                        for (Map.Entry<UUID, IQuest> successor : successors.get(entry)) {
+                            accept(successor);
+                        }
+                    }
+                };
+        quests.entrySet().forEach(addQuest);
+
+        return orderedQuests;
+    }
+
+    @Override
+    public String getUsageSuffix() {
+        return "[save|load|set] [file_name]";
+    }
+
+    @Override
+    public boolean validArgs(String[] args) {
+        return args.length == 2 || args.length == 3;
+    }
+
+    @Override
+    @SuppressWarnings("unchecked")
+    public List<String> autoComplete(MinecraftServer server, ICommandSender sender, String[] args) {
+        List<String> list = new ArrayList<>();
+
+        if (args.length == 2) {
+            return CommandBase.getListOfStringsMatchingLastWord(args, "save", "savelegacy", "load", "set");
+        } else if (args.length == 3) {
+            list.add(DEFAULT_FILE);
+        }
+
+        return list;
+    }
+
+    @Override
+    public String getCommand() {
+        return "default";
+    }
+
+    @Override
+    public void runCommand(MinecraftServer server, CommandBase command, ICommandSender sender, String[] args) throws CommandException {
+        String databaseName;
+        File dataDir;
+        // The location of the legacy single huge file.
+        File legacyFile;
+        if (args.length == 3 && !args[2].equalsIgnoreCase(DEFAULT_FILE)) {
+            databaseName = args[2];
+            dataDir = new File(BQ_Settings.defaultDir, "saved_quests/" + args[2]);
+            legacyFile = new File(BQ_Settings.defaultDir, "saved_quests/" + args[2] + ".json");
+        } else {
+            databaseName = null;
+            dataDir = new File(BQ_Settings.defaultDir, DEFAULT_FILE);
+            legacyFile = new File(BQ_Settings.defaultDir, DEFAULT_FILE + ".json");
+        }
+
+        if (args[1].equalsIgnoreCase("save")) {
+            save(sender, databaseName, dataDir);
+
+        } else if (args[1].equalsIgnoreCase("savelegacy")) {
+            saveLegacy(sender, databaseName, legacyFile);
+
+        } else if (args[1].equalsIgnoreCase("load")) {
+            if (!dataDir.exists() && legacyFile.exists()) {
+                loadLegacy(sender, databaseName, legacyFile, false);
+            } else {
+                load(sender, databaseName, dataDir, false);
+            }
+
+        } else if (args[1].equalsIgnoreCase("set") && args.length == 3) {
+            if (!dataDir.exists() && legacyFile.exists()) {
+                setLegacy(sender, databaseName, legacyFile);
+            } else {
+                set(sender, databaseName, dataDir);
+            }
+
+        } else {
+            throw getException(command);
+        }
+    }
+
     @Override
     public String getPermissionNode() {
         return "betterquesting.command.admin.default";
@@ -459,18 +553,5 @@ public class QuestCommandDefaults extends QuestCommandBase {
     @Override
     public String getPermissionDescription() {
         return "Permission to saves/loads the current quest database to/from the global default directory";
-    }
-
-    private static String removeChatFormatting(String string) {
-        return string.replaceAll("§[0-9a-fk-or]", "");
-    }
-
-    /** Helper method that handles having null sender. */
-    private static void sendChatMessage(
-            @Nullable ICommandSender sender, String translationKey, Object... args) {
-        if (sender == null) {
-            return;
-        }
-        sender.sendMessage(new TextComponentTranslation(translationKey, args));
     }
 }

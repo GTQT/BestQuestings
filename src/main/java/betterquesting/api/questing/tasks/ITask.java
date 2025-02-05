@@ -3,7 +3,6 @@ package betterquesting.api.questing.tasks;
 import betterquesting.api.questing.IQuest;
 import betterquesting.api2.client.gui.misc.IGuiRect;
 import betterquesting.api2.client.gui.panels.IGuiPanel;
-import betterquesting.api2.storage.DBEntry;
 import betterquesting.api2.storage.INBTProgress;
 import betterquesting.api2.storage.INBTSaveLoad;
 import betterquesting.api2.utils.ParticipantInfo;
@@ -15,6 +14,7 @@ import net.minecraftforge.fml.relauncher.SideOnly;
 
 import javax.annotation.Nullable;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 public interface ITask extends INBTSaveLoad<NBTTagCompound>, INBTProgress<NBTTagCompound> {
@@ -22,7 +22,7 @@ public interface ITask extends INBTSaveLoad<NBTTagCompound>, INBTProgress<NBTTag
 
     ResourceLocation getFactoryID();
 
-    void detect(ParticipantInfo participant, DBEntry<IQuest> quest);
+    void detect(ParticipantInfo participant, Map.Entry<UUID, IQuest> quest);
 
     boolean isComplete(UUID uuid);
 
@@ -32,11 +32,11 @@ public interface ITask extends INBTSaveLoad<NBTTagCompound>, INBTProgress<NBTTag
 
     @Nullable
     @SideOnly(Side.CLIENT)
-    IGuiPanel getTaskGui(IGuiRect rect, DBEntry<IQuest> quest);
+    IGuiPanel getTaskGui(IGuiRect rect, Map.Entry<UUID, IQuest> quest);
 
     @Nullable
     @SideOnly(Side.CLIENT)
-    GuiScreen getTaskEditor(GuiScreen parent, DBEntry<IQuest> quest);
+    GuiScreen getTaskEditor(GuiScreen parent, Map.Entry<UUID, IQuest> quest);
 
     /**
      * Tasks that set this to true will be ignored by quest completion logic.

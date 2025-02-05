@@ -14,13 +14,12 @@ import org.lwjgl.input.Mouse;
 import java.util.function.Consumer;
 
 public class PanelButtonCustom extends CanvasEmpty implements IPanelButton {
-
     private final int buttonId;
+    private final IGuiTexture[] texStates = new IGuiTexture[3];
     private boolean isActive = true;
     private Consumer<PanelButtonCustom> callback;
-    private boolean isEnabled = true;
+    private final boolean isEnabled = true;
     private boolean pendingRelease;
-    private final IGuiTexture[] texStates = new IGuiTexture[3];
 
     public PanelButtonCustom(IGuiRect transform, int buttonId) {
         super(transform);

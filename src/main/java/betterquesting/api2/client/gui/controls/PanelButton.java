@@ -25,11 +25,11 @@ import java.util.function.Consumer;
 
 public class PanelButton implements IPanelButton, IGuiPanel, INBTSaveLoad<NBTTagCompound> {
     private final IGuiRect transform;
+    private final IGuiTexture[] texStates = new IGuiTexture[3];
+    private final int btnID;
     private boolean enabled = true;
     private boolean hovered = false;
-
-    private final IGuiTexture[] texStates = new IGuiTexture[3];
-    private IGuiColor[] colStates = new IGuiColor[]{new GuiColorStatic(128, 128, 128, 255), new GuiColorStatic(255, 255, 255, 255), new GuiColorStatic(16777120)};
+    private final IGuiColor[] colStates = new IGuiColor[]{new GuiColorStatic(128, 128, 128, 255), new GuiColorStatic(255, 255, 255, 255), new GuiColorStatic(16777120)};
     private IGuiTexture texIcon = null;
     private IGuiColor colIcon = null;
     private int icoPadding = 0;
@@ -38,8 +38,6 @@ public class PanelButton implements IPanelButton, IGuiPanel, INBTSaveLoad<NBTTag
     private String btnText;
     private int textAlign = 1;
     private boolean isActive = true;
-    private final int btnID;
-
     private boolean pendingRelease = false;
 
     private Consumer<PanelButton> clickAction = null;
@@ -51,6 +49,22 @@ public class PanelButton implements IPanelButton, IGuiPanel, INBTSaveLoad<NBTTag
 
         this.setTextures(PresetTexture.BTN_NORMAL_0.getTexture(), PresetTexture.BTN_NORMAL_1.getTexture(), PresetTexture.BTN_NORMAL_2.getTexture());
         this.setTextHighlight(PresetColor.BTN_DISABLED.getColor(), PresetColor.BTN_IDLE.getColor(), PresetColor.BTN_HOVER.getColor());
+    }
+
+    private static void drawCenteredString(FontRenderer font, String text, int x, int y, int width, int color, boolean shadow, int align) {
+        switch (align) {
+            case 0: {
+                font.drawString(text, x + 4, y, color, shadow);
+                break;
+            }
+            case 2: {
+                font.drawString(text, x + width - RenderUtils.getStringWidth(text, font) / 2F - 4, y, color, shadow);
+                break;
+            }
+            default: {
+                font.drawString(text, x + Math.floorDiv(width, 2) - RenderUtils.getStringWidth(text, font) / 2F, y, color, shadow);
+            }
+        }
     }
 
     public PanelButton setClickAction(Consumer<PanelButton> action) {
@@ -102,12 +116,12 @@ public class PanelButton implements IPanelButton, IGuiPanel, INBTSaveLoad<NBTTag
         return this;
     }
 
-    public void setText(String text) {
-        this.btnText = text;
-    }
-
     public String getText() {
         return this.btnText;
+    }
+
+    public void setText(String text) {
+        this.btnText = text;
     }
 
     @Override
@@ -188,22 +202,6 @@ public class PanelButton implements IPanelButton, IGuiPanel, INBTSaveLoad<NBTTag
         }
 
         GlStateManager.popMatrix();
-    }
-
-    private static void drawCenteredString(FontRenderer font, String text, int x, int y, int width, int color, boolean shadow, int align) {
-        switch (align) {
-            case 0: {
-                font.drawString(text, x + 4, y, color, shadow);
-                break;
-            }
-            case 2: {
-                font.drawString(text, x + width - RenderUtils.getStringWidth(text, font) / 2F - 4, y, color, shadow);
-                break;
-            }
-            default: {
-                font.drawString(text, x + Math.floorDiv(width, 2) - RenderUtils.getStringWidth(text, font) / 2F, y, color, shadow);
-            }
-        }
     }
 
     @Override

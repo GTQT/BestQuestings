@@ -13,6 +13,7 @@ import net.minecraftforge.fml.common.FMLCommonHandler;
 
 import javax.annotation.Nonnull;
 import java.util.*;
+import java.util.stream.Collectors;
 
 public class ParticipantInfo {
     public final EntityPlayer PLAYER;
@@ -58,33 +59,28 @@ public class ParticipantInfo {
         this.ALL_UUIDS = Collections.unmodifiableList(allID);
     }
 
-    public void markDirty(@Nonnull List<Integer> questIDs) // Only marks quests dirty for the immediate participating player
+    public void markDirty(UUID questID) // Only marks quests dirty for the immediate participating player
     {
         QuestCache qc = PLAYER.getCapability(CapabilityProviderQuestCache.CAP_QUEST_CACHE, null);
-        if (qc != null) questIDs.forEach(qc::markQuestDirty);
+        if (qc != null) qc.markQuestDirty(questID);
     }
 
-    public void markDirtyParty(@Nonnull List<Integer> questIDs) // Marks quests as dirty for the entire (active) party
+    public void markDirtyParty(UUID questID) // Marks quests as dirty for the entire (active) party
     {
-        if (ACTIVE_PLAYERS.size() <= 0 || questIDs.size() <= 0) return;
         ACTIVE_PLAYERS.forEach((value) -> {
             QuestCache qc = value.getCapability(CapabilityProviderQuestCache.CAP_QUEST_CACHE, null);
-            if (qc != null) questIDs.forEach(qc::markQuestDirty);
+            if (qc != null) qc.markQuestDirty(questID);
         });
     }
 
     @Nonnull
-    public int[] getSharedQuests() // Returns an array of all quests which one or more participants have unlocked
+    public Set<UUID> getSharedQuests() // Returns an array of all quests which one or more participants have unlocked
     {
-        TreeSet<Integer> active = new TreeSet<>();
-        ACTIVE_PLAYERS.forEach((p) -> {
-            QuestCache qc = p.getCapability(CapabilityProviderQuestCache.CAP_QUEST_CACHE, null);
-            if (qc != null) for (int value : qc.getActiveQuests()) active.add(value);
-        });
-
-        int[] shared = new int[active.size()];
-        int i = 0;
-        for (int value : active) shared[i++] = value;
-        return shared;
+        return ACTIVE_PLAYERS.stream()
+                .map(p -> p.getCapability(CapabilityProviderQuestCache.CAP_QUEST_CACHE, null))
+                .filter(Objects::nonNull)
+                .map(QuestCache::getActiveQuests)
+                .flatMap(Set::stream)
+                .collect(Collectors.toCollection(HashSet::new));
     }
 }

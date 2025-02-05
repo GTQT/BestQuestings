@@ -28,22 +28,18 @@ import java.util.List;
 
 // Kinda just a poxy panel where tools can be hotswapped out
 public class PanelToolController implements IGuiPanel {
-    private CanvasQuestLine questLine;
-    private final IGuiRect transform;
-    private boolean enabled = true;
-
-    private final IValueIO<Float> scDriverX;
-    private final IValueIO<Float> scDriverY;
-
-    private IToolboxTool activeTool;
-
     public static final NonNullList<PanelButtonQuest> selected = NonNullList.create();
     public static final List<IGuiPanel> highlights = new ArrayList<>();
-    private GuiRectangle selBounds;
-
+    private final IGuiRect transform;
+    private final IValueIO<Float> scDriverX;
+    private final IValueIO<Float> scDriverY;
     private final IGuiLine selLine = new BoxLine();
     private final IGuiColor selCol = new GuiColorPulse(0xFFFFFFFF, 0xFF000000, 2F, 0F);
     private final IGuiTexture hTex = new ColorTexture(new GuiColorPulse(0x22FFFFFF, 0x77FFFFFF, 2F, 0F));
+    private CanvasQuestLine questLine;
+    private boolean enabled = true;
+    private IToolboxTool activeTool;
+    private GuiRectangle selBounds;
 
     public PanelToolController(IGuiRect rect, CanvasQuestLine questLine) {
         this.transform = rect;
@@ -72,16 +68,16 @@ public class PanelToolController implements IGuiPanel {
         }.setLerp(false, 0.02F);
     }
 
+    public IToolboxTool getActiveTool() {
+        return this.activeTool;
+    }
+
     public void setActiveTool(IToolboxTool tool) {
         if (this.activeTool != null) activeTool.disableTool();
         if (tool == null) return;
 
         activeTool = tool;
         tool.initTool(questLine);
-    }
-
-    public IToolboxTool getActiveTool() {
-        return this.activeTool;
     }
 
     public void changeCanvas(@Nonnull CanvasQuestLine canvas) {
@@ -93,8 +89,11 @@ public class PanelToolController implements IGuiPanel {
     public void refreshCanvas() {
         List<PanelButtonQuest> tmp = new ArrayList<>();
         for (PanelButtonQuest b1 : selected) {
-            for (PanelButtonQuest b2 : questLine.getQuestButtons())
-                if (b1.getStoredValue().getID() == b2.getStoredValue().getID()) tmp.add(b2);
+            for (PanelButtonQuest b2 : questLine.getQuestButtons()) {
+                if (b1.getStoredValue().getKey().equals(b2.getStoredValue().getKey())) {
+                    tmp.add(b2);
+                }
+            }
         }
 
         selected.clear();
@@ -128,13 +127,13 @@ public class PanelToolController implements IGuiPanel {
     }
 
     @Override
-    public void setEnabled(boolean state) {
-        this.enabled = state;
+    public boolean isEnabled() {
+        return enabled;
     }
 
     @Override
-    public boolean isEnabled() {
-        return enabled;
+    public void setEnabled(boolean state) {
+        this.enabled = state;
     }
 
     @Override

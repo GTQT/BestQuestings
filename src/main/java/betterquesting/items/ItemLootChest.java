@@ -31,6 +31,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class ItemLootChest extends Item {
+    private List<ItemStack> subItems = null;
+
     public ItemLootChest() {
         this.setMaxStackSize(1);
         this.setTranslationKey("bq_standard.loot_chest");
@@ -154,8 +156,6 @@ public class ItemLootChest extends Item {
 
         return new ActionResult<>(EnumActionResult.PASS, stack);
     }
-
-    private List<ItemStack> subItems = null;
 
     /**
      * returns a list of items with the same ID, but different meta (eg: dye returns 16 items)

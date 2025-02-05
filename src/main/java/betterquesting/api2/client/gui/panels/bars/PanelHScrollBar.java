@@ -16,7 +16,7 @@ public class PanelHScrollBar implements IScrollBar {
     private boolean active = true;
 
     private IGuiTexture texBack;
-    private IGuiTexture[] texHandleState = new IGuiTexture[3];
+    private final IGuiTexture[] texHandleState = new IGuiTexture[3];
 
     private float scroll = 0F;
     private float speed = BQ_Settings.scrollMultiplier / 20;
@@ -56,23 +56,23 @@ public class PanelHScrollBar implements IScrollBar {
     }
 
     @Override
-    public void setEnabled(boolean state) {
-        this.enabled = state;
-    }
-
-    @Override
     public boolean isEnabled() {
         return this.enabled;
     }
 
     @Override
-    public void setActive(boolean state) {
-        this.active = state;
+    public void setEnabled(boolean state) {
+        this.enabled = state;
     }
 
     @Override
     public boolean isActive() {
         return this.active;
+    }
+
+    @Override
+    public void setActive(boolean state) {
+        this.active = state;
     }
 
     @Override

@@ -18,17 +18,15 @@ import java.util.List;
 public class PanelTextBox implements IGuiPanel {
     private final GuiRectText transform;
     private final GuiRectangle refRect = new GuiRectangle(0, 0, 0, 0, 0);
+    private final boolean autoFit;
+    private final float relScale = 12F;
     private boolean enabled = true;
-
     private String text = "";
     private boolean shadow = false;
     private IGuiColor color = new GuiColorStatic(255, 255, 255, 255);
-    private final boolean autoFit;
     private int align = 0;
     private int fontScale = 12;
-
     private int lines = 1; // Cached number of lines
-    private final float relScale = 12F;
 
     public PanelTextBox(IGuiRect rect, String text) {
         this(rect, text, false);
@@ -101,13 +99,13 @@ public class PanelTextBox implements IGuiPanel {
     }
 
     @Override
-    public void setEnabled(boolean state) {
-        this.enabled = state;
+    public boolean isEnabled() {
+        return this.enabled;
     }
 
     @Override
-    public boolean isEnabled() {
-        return this.enabled;
+    public void setEnabled(boolean state) {
+        this.enabled = state;
     }
 
     @Override
@@ -169,6 +167,10 @@ public class PanelTextBox implements IGuiPanel {
         return null;
     }
 
+    private boolean isRectEqual(IGuiRect r1, IGuiRect r2) {
+        return r1.getX() == r2.getX() && r1.getY() == r2.getY() && r1.getWidth() == r2.getWidth() && r1.getHeight() == r2.getHeight();
+    }
+
     private static class GuiRectText implements IGuiRect {
         private final IGuiRect proxy;
         private final boolean useH;
@@ -227,9 +229,5 @@ public class PanelTextBox implements IGuiPanel {
         public int compareTo(@Nonnull IGuiRect o) {
             return proxy.compareTo(o);
         }
-    }
-
-    private boolean isRectEqual(IGuiRect r1, IGuiRect r2) {
-        return r1.getX() == r2.getX() && r1.getY() == r2.getY() && r1.getWidth() == r2.getWidth() && r1.getHeight() == r2.getHeight();
     }
 }

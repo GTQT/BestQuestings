@@ -34,11 +34,52 @@ import javax.annotation.Nonnull;
 import java.util.*;
 
 public class GuiBuilderMain extends GuiScreenCanvas implements IVolatileScreen {
+    private static final GuiTransform[] PRE_TF_SEG = new GuiTransform[]{
+            new GuiTransform(new Vector4f(0F, 0F, 0.5F, 0.5F), new GuiPadding(0, 0, 0, 0), 0),
+            new GuiTransform(new Vector4f(0F, 0F, 1F, 0.5F), new GuiPadding(0, 0, 0, 0), 0),
+            new GuiTransform(new Vector4f(0.5F, 0F, 1F, 0.5F), new GuiPadding(0, 0, 0, 0), 0),
+
+            new GuiTransform(new Vector4f(0F, 0F, 0.5F, 1F), new GuiPadding(0, 0, 0, 0), 0),
+            new GuiTransform(new Vector4f(0F, 0F, 1F, 1F), new GuiPadding(0, 0, 0, 0), 0),
+            new GuiTransform(new Vector4f(0.5F, 0F, 1F, 1F), new GuiPadding(0, 0, 0, 0), 0),
+
+            new GuiTransform(new Vector4f(0F, 0.5F, 0.5F, 1F), new GuiPadding(0, 0, 0, 0), 0),
+            new GuiTransform(new Vector4f(0F, 0.5F, 1F, 1F), new GuiPadding(0, 0, 0, 0), 0),
+            new GuiTransform(new Vector4f(0.5F, 0.5F, 1F, 1F), new GuiPadding(0, 0, 0, 0), 0)
+    };
+    private static final Map<Integer, GuiTransform> PRE_TF_EDGE;
+
+    static {
+        HashMap<Integer, GuiTransform> tmp = new HashMap<>();
+
+        // Edge Bit Map = R L B T
+
+        //Corners
+        tmp.put(0b0101, new GuiTransform(GuiAlign.TOP_LEFT, new GuiPadding(-4, -4, -4, -4), 0));
+        tmp.put(0b1001, new GuiTransform(GuiAlign.TOP_RIGHT, new GuiPadding(-4, -4, -4, -4), 0));
+        tmp.put(0b1010, new GuiTransform(GuiAlign.BOTTOM_RIGHT, new GuiPadding(-4, -4, -4, -4), 0));
+        tmp.put(0b0110, new GuiTransform(GuiAlign.BOTTOM_LEFT, new GuiPadding(-4, -4, -4, -4), 0));
+
+        //Edges
+        tmp.put(0b0001, new GuiTransform(GuiAlign.TOP_EDGE, new GuiPadding(-4, -4, -4, -4), 0));
+        tmp.put(0b1000, new GuiTransform(GuiAlign.RIGHT_EDGE, new GuiPadding(-4, -4, -4, -4), 0));
+        tmp.put(0b0010, new GuiTransform(GuiAlign.BOTTOM_EDGE, new GuiPadding(-4, -4, -4, -4), 0));
+        tmp.put(0b0100, new GuiTransform(GuiAlign.LEFT_EDGE, new GuiPadding(-4, -4, -4, -4), 0));
+
+        PRE_TF_EDGE = Collections.unmodifiableMap(tmp);
+    }
+
     // Database of panel components given unique IDs
     // We can deal with the save/load here without having to make an entire class for this
     private final SimpleDatabase<ComponentPanel> COM_DB = new SimpleDatabase<>();
     // GUI panel representations of components. IDs should line up with COM_DB
     private final SimpleDatabase<IGuiPanel> PANEL_DB = new SimpleDatabase<>();
+
+    // I don't think I need to theme these. Not hard to change later if necessary
+    private final BoxLine boxLine = new BoxLine();
+    private final IGuiColor parCol = new GuiColorStatic(0xFFFF0000);
+    private final IGuiColor ancCol = new GuiColorStatic(0xFFFFFF00);
+    private final IGuiColor boundsCol = new GuiColorStatic(0xFF0000FF);
 
     private CanvasEmpty cvPreview;
     private IGuiCanvas cvPropTray; // Also doubles as the palette tray
@@ -356,14 +397,6 @@ public class GuiBuilderMain extends GuiScreenCanvas implements IVolatileScreen {
             drawTransformBounds(selPn.getTransform(), false);
         }
     }
-
-    private final GuiTransform refBounds = new GuiTransform();
-
-    // I don't think I need to theme these. Not hard to change later if necessary
-    private BoxLine boxLine = new BoxLine();
-    private IGuiColor parCol = new GuiColorStatic(0xFFFF0000);
-    private IGuiColor ancCol = new GuiColorStatic(0xFFFFFF00);
-    private IGuiColor boundsCol = new GuiColorStatic(0xFF0000FF);
 
     private void drawTransformBounds(@Nonnull IGuiRect rect, boolean showNumbers) {
         if (rect.getParent() != null) boxLine.drawLine(rect.getParent(), rect.getParent(), 2, parCol, 1F);
@@ -723,41 +756,5 @@ public class GuiBuilderMain extends GuiScreenCanvas implements IVolatileScreen {
         int x2 = x1 + w;
         int y2 = y1 + h;
         return x3 >= x1 - range && x3 < x2 + range && y3 >= y1 - range && y3 < y2 + range;
-    }
-
-    private static final GuiTransform[] PRE_TF_SEG = new GuiTransform[]{
-            new GuiTransform(new Vector4f(0F, 0F, 0.5F, 0.5F), new GuiPadding(0, 0, 0, 0), 0),
-            new GuiTransform(new Vector4f(0F, 0F, 1F, 0.5F), new GuiPadding(0, 0, 0, 0), 0),
-            new GuiTransform(new Vector4f(0.5F, 0F, 1F, 0.5F), new GuiPadding(0, 0, 0, 0), 0),
-
-            new GuiTransform(new Vector4f(0F, 0F, 0.5F, 1F), new GuiPadding(0, 0, 0, 0), 0),
-            new GuiTransform(new Vector4f(0F, 0F, 1F, 1F), new GuiPadding(0, 0, 0, 0), 0),
-            new GuiTransform(new Vector4f(0.5F, 0F, 1F, 1F), new GuiPadding(0, 0, 0, 0), 0),
-
-            new GuiTransform(new Vector4f(0F, 0.5F, 0.5F, 1F), new GuiPadding(0, 0, 0, 0), 0),
-            new GuiTransform(new Vector4f(0F, 0.5F, 1F, 1F), new GuiPadding(0, 0, 0, 0), 0),
-            new GuiTransform(new Vector4f(0.5F, 0.5F, 1F, 1F), new GuiPadding(0, 0, 0, 0), 0)
-    };
-
-    private static final Map<Integer, GuiTransform> PRE_TF_EDGE;
-
-    static {
-        HashMap<Integer, GuiTransform> tmp = new HashMap<>();
-
-        // Edge Bit Map = R L B T
-
-        //Corners
-        tmp.put(0b0101, new GuiTransform(GuiAlign.TOP_LEFT, new GuiPadding(-4, -4, -4, -4), 0));
-        tmp.put(0b1001, new GuiTransform(GuiAlign.TOP_RIGHT, new GuiPadding(-4, -4, -4, -4), 0));
-        tmp.put(0b1010, new GuiTransform(GuiAlign.BOTTOM_RIGHT, new GuiPadding(-4, -4, -4, -4), 0));
-        tmp.put(0b0110, new GuiTransform(GuiAlign.BOTTOM_LEFT, new GuiPadding(-4, -4, -4, -4), 0));
-
-        //Edges
-        tmp.put(0b0001, new GuiTransform(GuiAlign.TOP_EDGE, new GuiPadding(-4, -4, -4, -4), 0));
-        tmp.put(0b1000, new GuiTransform(GuiAlign.RIGHT_EDGE, new GuiPadding(-4, -4, -4, -4), 0));
-        tmp.put(0b0010, new GuiTransform(GuiAlign.BOTTOM_EDGE, new GuiPadding(-4, -4, -4, -4), 0));
-        tmp.put(0b0100, new GuiTransform(GuiAlign.LEFT_EDGE, new GuiPadding(-4, -4, -4, -4), 0));
-
-        PRE_TF_EDGE = Collections.unmodifiableMap(tmp);
     }
 }

@@ -17,7 +17,7 @@ public class SupporterDB implements INBTSaveLoad<NBTTagCompound> {
     public synchronized SupporterEntry add(@Nonnull UUID playerID) {
         SupporterEntry entry = new SupporterEntry();
         if (mapDB.putIfAbsent(playerID, entry) != null) {
-            BetterQuesting.logger.warn("Tried to add duplicate supporter to DB: " + playerID.toString());
+            BetterQuesting.logger.warn("Tried to add duplicate supporter to DB: " + playerID);
             return mapDB.get(playerID);
         }
         return entry;
