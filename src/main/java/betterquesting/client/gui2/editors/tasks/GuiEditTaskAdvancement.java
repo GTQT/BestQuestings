@@ -6,7 +6,6 @@ import betterquesting.api.client.gui.misc.IVolatileScreen;
 import betterquesting.api.network.QuestingPacket;
 import betterquesting.api.questing.IQuest;
 import betterquesting.api.utils.BigItemStack;
-import betterquesting.api.utils.NBTConverter;
 import betterquesting.api.utils.RenderUtils;
 import betterquesting.api2.client.gui.GuiScreenCanvas;
 import betterquesting.api2.client.gui.controls.PanelButton;
@@ -24,7 +23,9 @@ import betterquesting.api2.client.gui.panels.content.PanelTextBox;
 import betterquesting.api2.client.gui.resources.textures.ItemTexture;
 import betterquesting.api2.client.gui.themes.presets.PresetColor;
 import betterquesting.api2.client.gui.themes.presets.PresetTexture;
+import betterquesting.api2.storage.DBEntry;
 import betterquesting.api2.utils.QuestTranslation;
+import betterquesting.core.ModReference;
 import betterquesting.questing.tasks.TaskAdvancement;
 import net.minecraft.advancements.Advancement;
 import net.minecraft.advancements.DisplayInfo;
@@ -36,16 +37,14 @@ import org.lwjgl.input.Keyboard;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
-import java.util.UUID;
 
 public class GuiEditTaskAdvancement extends GuiScreenCanvas implements IVolatileScreen {
-    private static final ResourceLocation QUEST_EDIT = new ResourceLocation("betterquesting:quest_edit"); // TODO: Really need to make the native packet types accessible in the API
-    private final Map.Entry<UUID, IQuest> quest;
+    private final DBEntry<IQuest> quest;
     private final TaskAdvancement task;
+
     private ResourceLocation selected;
 
-    public GuiEditTaskAdvancement(GuiScreen parent, Map.Entry<UUID, IQuest> quest, TaskAdvancement task) {
+    public GuiEditTaskAdvancement(GuiScreen parent, DBEntry<IQuest> quest, TaskAdvancement task) {
         super(parent);
         this.quest = quest;
         this.task = task;
@@ -114,13 +113,15 @@ public class GuiEditTaskAdvancement extends GuiScreenCanvas implements IVolatile
         });
     }
 
+    private static final ResourceLocation QUEST_EDIT = new ResourceLocation(ModReference.MODID, "quest_edit"); // TODO: Really need to make the native packet types accessible in the API
+
     private void sendChanges() {
         task.advID = selected;
         NBTTagCompound payload = new NBTTagCompound();
         NBTTagList dataList = new NBTTagList();
         NBTTagCompound entry = new NBTTagCompound();
-        NBTConverter.UuidValueType.QUEST.writeId(quest.getKey(), entry);
-        entry.setTag("config", quest.getValue().writeToNBT(new NBTTagCompound()));
+        entry.setInteger("questID", quest.getID());
+        entry.setTag("config", quest.getValue().writeToNBT(new NBTTagCompound(), true));
         dataList.appendTag(entry);
         payload.setTag("data", dataList);
         payload.setInteger("action", 0); // Action: Update data

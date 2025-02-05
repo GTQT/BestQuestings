@@ -11,6 +11,9 @@ import betterquesting.client.QuestNotification;
 import betterquesting.client.gui2.GuiHome;
 import betterquesting.commands.admin.QuestCommandDefaults;
 import betterquesting.core.BetterQuesting;
+import betterquesting.core.ModReference;
+import betterquesting.legacy.ILegacyLoader;
+import betterquesting.legacy.LegacyLoaderRegistry;
 import betterquesting.questing.QuestDatabase;
 import betterquesting.questing.QuestLineDatabase;
 import betterquesting.questing.party.PartyInvitations;
@@ -35,15 +38,20 @@ import java.util.stream.Collectors;
 public class SaveLoadHandler {
 
     public static SaveLoadHandler INSTANCE = new SaveLoadHandler();
-    private final Set<UUID> dirtyPlayers = new ConcurrentSet<>();
+
     private boolean hasUpdate = false;
     private boolean isDirty = false;
+
     private File fileDatabase = null;
     private File fileProgress = null;
     private File dirProgress = null;
     private File fileParties = null;
     private File fileLives = null;
     private File fileNames = null;
+
+    private ILegacyLoader legacyLoader = null;
+
+    private final Set<UUID> dirtyPlayers = new ConcurrentSet<>();
 
     public boolean hasUpdate() {
         return this.hasUpdate;
@@ -90,6 +98,8 @@ public class SaveLoadHandler {
         fileLives = new File(BQ_Settings.curWorldDir, "LifeDatabase.json");
         fileNames = new File(BQ_Settings.curWorldDir, "NameCache.json");
 
+        checkLegacyFiles(rootDir);
+
         loadConfig();
 
         loadProgress();
@@ -99,6 +109,8 @@ public class SaveLoadHandler {
         loadNames();
 
         loadLives();
+
+        legacyLoader = null;
 
         BetterQuesting.logger.info("Loaded " + QuestDatabase.INSTANCE.size() + " quests");
         BetterQuesting.logger.info("Loaded " + QuestLineDatabase.INSTANCE.size() + " quest lines");
@@ -144,8 +156,8 @@ public class SaveLoadHandler {
             isDirty = false;
 
             QuestSettings.INSTANCE.reset();
-            QuestDatabase.INSTANCE.clear();
-            QuestLineDatabase.INSTANCE.clear();
+            QuestDatabase.INSTANCE.reset();
+            QuestLineDatabase.INSTANCE.reset();
             LifeDatabase.INSTANCE.reset();
             NameCache.INSTANCE.reset();
             PartyInvitations.INSTANCE.reset();
@@ -162,12 +174,11 @@ public class SaveLoadHandler {
 
     private void loadConfig() {
         QuestSettings.INSTANCE.reset();
-        QuestDatabase.INSTANCE.clear();
-        QuestLineDatabase.INSTANCE.clear();
+        QuestDatabase.INSTANCE.reset();
+        QuestLineDatabase.INSTANCE.reset();
 
         int packVer = 0;
         String packName = "";
-        final String currVer = Loader.instance().activeModContainer().getVersion();
 
         File defaultDatabaseFile = new File(BQ_Settings.defaultDir, QuestCommandDefaults.DEFAULT_FILE + ".json");
         File defaultDatabaseDir = new File(BQ_Settings.defaultDir, QuestCommandDefaults.DEFAULT_FILE);
@@ -188,12 +199,16 @@ public class SaveLoadHandler {
             // Perhaps we should improve this.
             JsonObject databaseJson = JsonHelper.ReadFromFile(fileDatabase);
             String buildVer =
-                    NBTConverter.JSONtoNBT_Object(settingsJson, new NBTTagCompound(), true)
+                    NBTConverter.JSONtoNBT_Object(databaseJson, new NBTTagCompound(), true)
                             .getString("build");
-            if (!currVer.equalsIgnoreCase(buildVer)) { // RUN BACKUPS
+            String currVer = Loader.instance().activeModContainer().getVersion();
+
+            if (!currVer.equalsIgnoreCase(buildVer)) // RUN BACKUPS
+            {
                 String fsVer = JsonHelper.makeFileNameSafe(buildVer);
 
-                if (fsVer.isEmpty()) {
+                if (fsVer.isEmpty())
+                {
                     fsVer = "pre-251";
                 }
 
@@ -207,16 +222,22 @@ public class SaveLoadHandler {
             }
 
             QuestCommandDefaults.loadLegacy(null, null, fileDatabase, true);
+
         } else { // LOAD DEFAULTS
-            if (defaultDatabaseDir.exists()) {
+            if (defaultDatabaseDir.exists())
+            {
                 QuestCommandDefaults.load(null, null, defaultDatabaseDir, true);
-            } else {
+            }
+            else
+            {
                 QuestCommandDefaults.loadLegacy(null, null, defaultDatabaseFile, true);
             }
 
             isDirty = true;
             QuestSettings.INSTANCE.setProperty(NativeProps.EDIT_MODE, false); // Force edit off
         }
+
+
 
         hasUpdate = packName.equals(QuestSettings.INSTANCE.getProperty(NativeProps.PACK_NAME)) && packVer > QuestSettings.INSTANCE.getProperty(NativeProps.PACK_VER);
     }
@@ -225,8 +246,12 @@ public class SaveLoadHandler {
         if (fileProgress.exists()) {
             JsonObject json = JsonHelper.ReadFromFile(fileProgress);
 
-            NBTTagCompound nbt = NBTConverter.JSONtoNBT_Object(json, new NBTTagCompound(), true);
-            QuestDatabase.INSTANCE.readProgressFromNBT(nbt.getTagList("questProgress", 10), false);
+            if (legacyLoader == null) {
+                NBTTagCompound nbt = NBTConverter.JSONtoNBT_Object(json, new NBTTagCompound(), true);
+                QuestDatabase.INSTANCE.readProgressFromNBT(nbt.getTagList("questProgress", 10), false);
+            } else {
+                legacyLoader.readProgressFromJson(json);
+            }
         }
 
         for (File file : getPlayerProgressFiles()) {
@@ -259,15 +284,38 @@ public class SaveLoadHandler {
         LifeDatabase.INSTANCE.readFromNBT(nbt.getCompoundTag("lifeDatabase"), false);
     }
 
+    @SuppressWarnings("ResultOfMethodCallIgnored")
+    private void checkLegacyFiles(File rootDir) {
+        if (new File(rootDir, "QuestDatabase.json").exists() && !fileDatabase.exists()) {
+            File legacyDatabase = new File(rootDir, "QuestDatabase.json");
+            File legacyProgress = new File(rootDir, "QuestProgress.json");
+            File legacyParties = new File(rootDir, "QuestingParties.json");
+            File legacyLives = new File(rootDir, "LifeDatabase.json");
+            File legacyNames = new File(rootDir, "NameCache.json");
+
+            JsonHelper.CopyPaste(legacyDatabase, fileDatabase);
+            JsonHelper.CopyPaste(legacyProgress, fileProgress);
+            JsonHelper.CopyPaste(legacyParties, fileParties);
+            JsonHelper.CopyPaste(legacyLives, fileLives);
+            JsonHelper.CopyPaste(legacyNames, fileNames);
+
+            legacyDatabase.delete();
+            legacyProgress.delete();
+            legacyParties.delete();
+            legacyLives.delete();
+            legacyNames.delete();
+        }
+    }
+
     private Future<Void> saveConfig() {
         NBTTagCompound json = new NBTTagCompound();
 
-        json.setTag("questSettings", QuestSettings.INSTANCE.writeToNBT(new NBTTagCompound()));
-        json.setTag("questDatabase", QuestDatabase.INSTANCE.writeToNBT(new NBTTagList(), null));
-        json.setTag("questLines", QuestLineDatabase.INSTANCE.writeToNBT(new NBTTagList(), null));
+        json.setTag("questSettings", QuestSettings.INSTANCE.writeToNBT(new NBTTagCompound(), true));
+        json.setTag("questDatabase", QuestDatabase.INSTANCE.writeToNBT(new NBTTagList(), null, true));
+        json.setTag("questLines", QuestLineDatabase.INSTANCE.writeToNBT(new NBTTagList(), null, true));
 
         json.setString("format", BetterQuesting.FORMAT);
-        json.setString("build", Loader.instance().activeModContainer().getVersion());
+        json.setString("build", ModReference.VERSION);
 
         return JsonHelper.WriteToFile(fileDatabase, NBTConverter.NBTtoJSON_Compound(json, new JsonObject(), true));
     }
@@ -281,7 +329,7 @@ public class SaveLoadHandler {
     private Future<Void> saveParties() {
         NBTTagCompound json = new NBTTagCompound();
 
-        json.setTag("parties", PartyManager.INSTANCE.writeToNBT(new NBTTagList(), null));
+        json.setTag("parties", PartyManager.INSTANCE.writeToNBT(new NBTTagList(), null, true));
 
         return JsonHelper.WriteToFile(fileParties, NBTConverter.NBTtoJSON_Compound(json, new JsonObject(), true));
     }
@@ -289,7 +337,7 @@ public class SaveLoadHandler {
     private Future<Void> saveNames() {
         NBTTagCompound json = new NBTTagCompound();
 
-        json.setTag("nameCache", NameCache.INSTANCE.writeToNBT(new NBTTagList(), null));
+        json.setTag("nameCache", NameCache.INSTANCE.writeToNBT(new NBTTagList(), null, true));
 
         return JsonHelper.WriteToFile(fileNames, NBTConverter.NBTtoJSON_Compound(json, new JsonObject(), true));
     }
@@ -297,7 +345,7 @@ public class SaveLoadHandler {
     private Future<Void> saveLives() {
         NBTTagCompound json = new NBTTagCompound();
 
-        json.setTag("lifeDatabase", LifeDatabase.INSTANCE.writeToNBT(new NBTTagCompound(), null));
+        json.setTag("lifeDatabase", LifeDatabase.INSTANCE.writeToNBT(new NBTTagCompound(), null, true));
 
         return JsonHelper.WriteToFile(fileLives, NBTConverter.NBTtoJSON_Compound(json, new JsonObject(), true));
     }

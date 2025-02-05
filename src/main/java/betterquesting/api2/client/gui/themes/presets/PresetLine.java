@@ -25,6 +25,14 @@ public enum PresetLine {
         this.key = new ResourceLocation(ModReference.MODID, key);
     }
 
+    public IGuiLine getLine() {
+        return ThemeRegistry.INSTANCE.getLine(this.key);
+    }
+
+    public ResourceLocation getKey() {
+        return this.key;
+    }
+
     public static void registerLines(IThemeRegistry reg) {
         reg.setDefaultLine(GUI_DIVIDER.key, new SimpleLine());
 
@@ -36,13 +44,5 @@ public enum PresetLine {
         reg.setDefaultLine(QUEST_PENDING.key, new SimpleLine());
         reg.setDefaultLine(QUEST_COMPLETE.key, new SimpleLine());
         reg.setDefaultLine(QUEST_REPEATABLE.key, new SimpleLine());
-    }
-
-    public IGuiLine getLine() {
-        return ThemeRegistry.INSTANCE.getLine(this.key);
-    }
-
-    public ResourceLocation getKey() {
-        return this.key;
     }
 }

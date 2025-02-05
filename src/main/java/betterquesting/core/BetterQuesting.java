@@ -45,31 +45,35 @@ import net.minecraftforge.fml.common.registry.GameRegistry;
 import net.minecraftforge.fml.relauncher.Side;
 import org.apache.logging.log4j.Logger;
 
-@Mod(modid = BetterQuesting.MODID, guiFactory = "betterquesting.handlers.ConfigGuiFactory")
+@Mod(modid = ModReference.MODID, version = BetterQuesting.VERSION, name = ModReference.NAME, guiFactory = "betterquesting.handlers.ConfigGuiFactory")
 public class BetterQuesting {
-    public static final String VERSION = "@VERSION@";
-    public static final String MODID = "betterquesting";
-    public static final String NAME = "Better Questing Unofficial";
-    public static final String FORMAT = "3.0.0";
+    public static final String VERSION = ModReference.VERSION;
+    public static final String FORMAT = "2.1.0";
 
     // Used for some legacy compat
     public static final String MODID_STD = "bq_standard";
+
+    public static boolean hasJEI = false;
+
     // TODO: Possibly make use of this in future
     private static final String MCL_API = "Yo1nkbXn7uVptLoL3GpkAaT7HsU8QFGJ";
-    public static boolean hasJEI = false;
-    @Instance(MODID)
+
+    @Instance(ModReference.MODID)
     public static BetterQuesting instance;
 
     @SidedProxy(clientSide = "betterquesting.core.proxies.ClientProxy", serverSide = "betterquesting.core.proxies.CommonProxy")
     public static CommonProxy proxy;
+    public SimpleNetworkWrapper network;
     public static Logger logger;
+
     public static CreativeTabs tabQuesting = new CreativeTabQuesting();
+
     public static Item extraLife = new ItemExtraLife();
     public static Item guideBook = new ItemGuideBook();
     public static Item lootChest = new ItemLootChest();
     public static Item questBook = new ItemQuestBook();
+
     public static Block submitStation = new BlockSubmitStation();
-    public SimpleNetworkWrapper network;
 
     @EventHandler
     public void preInit(FMLPreInitializationEvent event) {
@@ -93,9 +97,9 @@ public class BetterQuesting {
     public void init(FMLInitializationEvent event) {
         FluidRegistry.registerFluid(FluidPlaceholder.fluidPlaceholder);
 
-        GameRegistry.registerTileEntity(TileSubmitStation.class, new ResourceLocation(MODID + ":submit_station"));
+        GameRegistry.registerTileEntity(TileSubmitStation.class, new ResourceLocation(ModReference.MODID, "submit_station"));
 
-        EntityRegistry.registerModEntity(new ResourceLocation(MODID + ":placeholder"), EntityPlaceholder.class, "placeholder", 0, this, 16, 1, false);
+        EntityRegistry.registerModEntity(new ResourceLocation(ModReference.MODID, "placeholder"), EntityPlaceholder.class, "placeholder", 0, this, 16, 1, false);
     }
 
     @EventHandler

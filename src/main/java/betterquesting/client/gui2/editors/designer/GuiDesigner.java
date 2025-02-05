@@ -32,15 +32,16 @@ import org.lwjgl.util.vector.Vector4f;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
 
 public class GuiDesigner extends GuiScreenCanvas implements IVolatileScreen, INeedsRefresh, IPEventListener {
-    private final UUID lineID;
-    private final List<IToolTab> tabList = new ArrayList<>();
     // Not final because I hope to support hot swapping in future
     private IQuestLine questLine;
+    private final int lineID;
+
     private PanelToolController toolController;
     private IGuiCanvas cvTray;
+
+    private final List<IToolTab> tabList = new ArrayList<>();
     private PanelTextBox tabTitle;
     private IGuiPanel lastTabPanel;
     private int tabIdx = 0;
@@ -50,13 +51,13 @@ public class GuiDesigner extends GuiScreenCanvas implements IVolatileScreen, INe
     public GuiDesigner(GuiScreen parent, IQuestLine line) {
         super(parent);
         this.questLine = line;
-        this.lineID = QuestLineDatabase.INSTANCE.lookupKey(line);
+        this.lineID = QuestLineDatabase.INSTANCE.getID(line);
         this.tabList.addAll(ToolboxRegistry.INSTANCE.getAllTabs());
     }
 
     @Override
     public void refreshGui() {
-        this.questLine = QuestLineDatabase.INSTANCE.get(lineID);
+        this.questLine = QuestLineDatabase.INSTANCE.getValue(lineID);
 
         if (questLine == null) {
             mc.displayGuiScreen(parent);

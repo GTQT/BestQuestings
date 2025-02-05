@@ -10,8 +10,9 @@ import java.util.List;
 
 public class ThemeRepository {
     private final String repoAddress;
-    private final List<CatalogueEntry> entries = new ArrayList<>();
     public String repoName = "Unknown Theme Repository";
+
+    private final List<CatalogueEntry> entries = new ArrayList<>();
 
     public ThemeRepository(@Nonnull String address) {
         repoAddress = address;

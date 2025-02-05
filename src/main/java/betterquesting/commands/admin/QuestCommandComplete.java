@@ -2,6 +2,7 @@ package betterquesting.commands.admin;
 
 import betterquesting.api.properties.NativeProps;
 import betterquesting.api.questing.IQuest;
+import betterquesting.api2.storage.DBEntry;
 import betterquesting.commands.QuestCommandBase;
 import betterquesting.network.handlers.NetQuestEdit;
 import betterquesting.questing.QuestDatabase;
@@ -33,8 +34,8 @@ public class QuestCommandComplete extends QuestCommandBase {
     public List<String> autoComplete(MinecraftServer server, ICommandSender sender, String[] args) {
         if (args.length == 2) {
             List<String> list = new ArrayList<>();
-            for (UUID id : QuestDatabase.INSTANCE.keySet()) {
-                list.add(id.toString());
+            for (DBEntry<IQuest> i : QuestDatabase.INSTANCE.getEntries()) {
+                list.add("" + i.getID());
             }
             return list;
         } else if (args.length == 3) {
@@ -67,10 +68,10 @@ public class QuestCommandComplete extends QuestCommandBase {
 
         String pName = NameCache.INSTANCE.getName(uuid);
 
-        UUID id = UUID.fromString(args[1].trim());
-        IQuest quest = QuestDatabase.INSTANCE.get(id);
+        int id = Integer.parseInt(args[1].trim());
+        IQuest quest = QuestDatabase.INSTANCE.getValue(id);
         if (quest == null) throw getException(command);
-        NetQuestEdit.setQuestStates(Collections.singletonList(id), true, uuid);
+        NetQuestEdit.setQuestStates(new int[]{id}, true, uuid);
         sender.sendMessage(new TextComponentTranslation("betterquesting.cmd.complete", new TextComponentTranslation(quest.getProperty(NativeProps.NAME)), pName));
     }
 

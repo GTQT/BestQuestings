@@ -4,6 +4,7 @@ import betterquesting.api.questing.IQuest;
 import betterquesting.api.questing.tasks.ITask;
 import betterquesting.api2.client.gui.misc.IGuiRect;
 import betterquesting.api2.client.gui.panels.IGuiPanel;
+import betterquesting.api2.storage.DBEntry;
 import betterquesting.api2.utils.ParticipantInfo;
 import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.nbt.NBTTagCompound;
@@ -11,30 +12,35 @@ import net.minecraft.util.ResourceLocation;
 
 import javax.annotation.Nullable;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 
 public class TaskPlaceholder implements ITask {
-    private final NBTTagCompound nbtData = new NBTTagCompound();
-
-    public NBTTagCompound getTaskConfigData() {
-        return nbtData.getCompoundTag("orig_data");
-    }
+    private NBTTagCompound nbtData = new NBTTagCompound();
 
     public void setTaskConfigData(NBTTagCompound nbt) {
         nbtData.setTag("orig_data", nbt);
-    }
-
-    public NBTTagCompound getTaskProgressData() {
-        return nbtData.getCompoundTag("orig_prog");
     }
 
     public void setTaskProgressData(NBTTagCompound nbt) {
         nbtData.setTag("orig_prog", nbt);
     }
 
+    public NBTTagCompound getTaskConfigData() {
+        return nbtData.getCompoundTag("orig_data");
+    }
+
+    public NBTTagCompound getTaskProgressData() {
+        return nbtData.getCompoundTag("orig_prog");
+    }
+
+    @Deprecated
     @Override
     public NBTTagCompound writeToNBT(NBTTagCompound nbt) {
+        return writeToNBT(nbt, false);
+    }
+
+    @Override
+    public NBTTagCompound writeToNBT(NBTTagCompound nbt, boolean reduce) {
         nbt.setTag("orig_data", nbtData.getCompoundTag("orig_data"));
         return nbt;
     }
@@ -66,7 +72,7 @@ public class TaskPlaceholder implements ITask {
     }
 
     @Override
-    public void detect(ParticipantInfo participant, Map.Entry<UUID, IQuest> quest) {
+    public void detect(ParticipantInfo participant, DBEntry<IQuest> quest) {
     }
 
     @Override
@@ -83,12 +89,12 @@ public class TaskPlaceholder implements ITask {
     }
 
     @Override
-    public IGuiPanel getTaskGui(IGuiRect rect, Map.Entry<UUID, IQuest> quest) {
+    public IGuiPanel getTaskGui(IGuiRect rect, DBEntry<IQuest> quest) {
         return null;
     }
 
     @Override
-    public GuiScreen getTaskEditor(GuiScreen parent, Map.Entry<UUID, IQuest> quest) {
+    public GuiScreen getTaskEditor(GuiScreen parent, DBEntry<IQuest> quest) {
         return null;
     }
 }

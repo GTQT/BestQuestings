@@ -7,6 +7,7 @@ import betterquesting.api.questing.IQuest;
 import betterquesting.api.questing.rewards.IReward;
 import betterquesting.api2.client.gui.misc.IGuiRect;
 import betterquesting.api2.client.gui.panels.IGuiPanel;
+import betterquesting.api2.storage.DBEntry;
 import betterquesting.client.gui2.rewards.PanelRewardCommand;
 import betterquesting.questing.rewards.factory.FactoryRewardCommand;
 import io.netty.buffer.ByteBuf;
@@ -25,7 +26,6 @@ import net.minecraft.world.World;
 
 import javax.annotation.Nonnull;
 import java.util.Arrays;
-import java.util.Map;
 import java.util.UUID;
 
 public class RewardCommand implements IReward {
@@ -53,13 +53,13 @@ public class RewardCommand implements IReward {
     }
 
     @Override
-    public boolean canClaim(EntityPlayer player, Map.Entry<UUID, IQuest> quest) {
+    public boolean canClaim(EntityPlayer player, DBEntry<IQuest> quest) {
         return true;
     }
 
     @Override
     @SuppressWarnings("ConstantConditions")
-    public void claimReward(final EntityPlayer player, Map.Entry<UUID, IQuest> quest) {
+    public void claimReward(final EntityPlayer player, DBEntry<IQuest> quest) {
         if (player.world.isRemote) return;
 
         UUID playerID = QuestingAPI.getQuestingUUID(player);
@@ -113,12 +113,12 @@ public class RewardCommand implements IReward {
     }
 
     @Override
-    public IGuiPanel getRewardGui(IGuiRect rect, Map.Entry<UUID, IQuest> quest) {
+    public IGuiPanel getRewardGui(IGuiRect rect, DBEntry<IQuest> quest) {
         return new PanelRewardCommand(rect, this);
     }
 
     @Override
-    public GuiScreen getRewardEditor(GuiScreen screen, Map.Entry<UUID, IQuest> quest) {
+    public GuiScreen getRewardEditor(GuiScreen screen, DBEntry<IQuest> quest) {
         return null;
     }
 

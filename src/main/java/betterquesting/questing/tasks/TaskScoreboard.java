@@ -5,6 +5,7 @@ import betterquesting.ScoreboardBQ;
 import betterquesting.api.questing.IQuest;
 import betterquesting.api2.client.gui.misc.IGuiRect;
 import betterquesting.api2.client.gui.panels.IGuiPanel;
+import betterquesting.api2.storage.DBEntry;
 import betterquesting.api2.utils.ParticipantInfo;
 import betterquesting.client.gui2.editors.tasks.GuiEditTaskScoreboard;
 import betterquesting.client.gui2.tasks.PanelTaskScoreboard;
@@ -74,12 +75,12 @@ public class TaskScoreboard implements ITaskTickable {
     }
 
     @Override
-    public void tickTask(@Nonnull ParticipantInfo pInfo, Map.Entry<UUID, IQuest> quest) {
+    public void tickTask(@Nonnull ParticipantInfo pInfo, DBEntry<IQuest> quest) {
         if (pInfo.PLAYER.ticksExisted % 20 == 0) detect(pInfo, quest); // Auto-detect once per second
     }
 
     @Override
-    public void detect(@Nonnull ParticipantInfo pInfo, Map.Entry<UUID, IQuest> quest) {
+    public void detect(@Nonnull ParticipantInfo pInfo, DBEntry<IQuest> quest) {
         Scoreboard board = pInfo.PLAYER.getWorldScoreboard();
         ScoreObjective scoreObj = board.getObjective(scoreName);
 
@@ -104,7 +105,7 @@ public class TaskScoreboard implements ITaskTickable {
 
         if (operation.checkValues(points, target)) {
             setComplete(pInfo.UUID);
-            pInfo.markDirty(quest.getKey());
+            pInfo.markDirty(Collections.singletonList(quest.getID()));
         }
     }
 
@@ -163,26 +164,6 @@ public class TaskScoreboard implements ITaskTickable {
         }
     }
 
-    @Override
-    @SideOnly(Side.CLIENT)
-    public IGuiPanel getTaskGui(IGuiRect rect, Map.Entry<UUID, IQuest> quest) {
-        return new PanelTaskScoreboard(rect, this);
-    }
-
-    @Override
-    @SideOnly(Side.CLIENT)
-    public GuiScreen getTaskEditor(GuiScreen parent, Map.Entry<UUID, IQuest> quest) {
-        return new GuiEditTaskScoreboard(parent, quest, this);
-    }
-
-    @Override
-    public List<String> getTextForSearch() {
-        List<String> texts = new ArrayList<>();
-        texts.add(scoreName);
-        texts.add(scoreDisp);
-        return texts;
-    }
-
     public enum ScoreOperation {
         EQUAL("="),
         LESS_THAN("<"),
@@ -219,5 +200,25 @@ public class TaskScoreboard implements ITaskTickable {
 
             return false;
         }
+    }
+
+    @Override
+    @SideOnly(Side.CLIENT)
+    public IGuiPanel getTaskGui(IGuiRect rect, DBEntry<IQuest> quest) {
+        return new PanelTaskScoreboard(rect, this);
+    }
+
+    @Override
+    @SideOnly(Side.CLIENT)
+    public GuiScreen getTaskEditor(GuiScreen parent, DBEntry<IQuest> quest) {
+        return new GuiEditTaskScoreboard(parent, quest, this);
+    }
+
+    @Override
+    public List<String> getTextForSearch() {
+        List<String> texts = new ArrayList<>();
+        texts.add(scoreName);
+        texts.add(scoreDisp);
+        return texts;
     }
 }

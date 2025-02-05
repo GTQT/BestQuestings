@@ -4,7 +4,6 @@ import betterquesting.api.client.gui.misc.INeedsRefresh;
 import betterquesting.api.client.gui.misc.IVolatileScreen;
 import betterquesting.api.questing.IQuest;
 import betterquesting.api.questing.rewards.IReward;
-import betterquesting.api.utils.NBTConverter;
 import betterquesting.api2.client.gui.GuiScreenCanvas;
 import betterquesting.api2.client.gui.controls.IPanelButton;
 import betterquesting.api2.client.gui.controls.PanelButton;
@@ -32,30 +31,34 @@ import betterquesting.client.gui2.editors.nbt.GuiNbtEditor;
 import betterquesting.network.handlers.NetQuestEdit;
 import betterquesting.questing.QuestDatabase;
 import betterquesting.questing.rewards.RewardRegistry;
-import com.google.common.collect.Maps;
 import net.minecraft.client.gui.GuiScreen;
+import net.minecraft.client.resources.I18n;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.nbt.NBTTagList;
 import net.minecraft.util.text.TextFormatting;
 import org.lwjgl.util.vector.Vector4f;
 
-import java.util.*;
+import java.util.ArrayDeque;
+import java.util.Comparator;
+import java.util.Iterator;
+import java.util.List;
 
 public class GuiRewardEditor extends GuiScreenCanvas implements IPEventListener, IVolatileScreen, INeedsRefresh {
-    private final UUID qID;
     private CanvasScrolling qrList;
+
     private IQuest quest;
+    private final int qID;
 
     public GuiRewardEditor(GuiScreen parent, IQuest quest) {
         super(parent);
 
         this.quest = quest;
-        this.qID = QuestDatabase.INSTANCE.lookupKey(quest);
+        this.qID = QuestDatabase.INSTANCE.getID(quest);
     }
 
     @Override
     public void refreshGui() {
-        quest = QuestDatabase.INSTANCE.get(qID);
+        quest = QuestDatabase.INSTANCE.getValue(qID);
 
         if (quest == null) {
             mc.displayGuiScreen(this.parent);
@@ -64,12 +67,14 @@ public class GuiRewardEditor extends GuiScreenCanvas implements IPEventListener,
 
         refreshRewards();
     }
-
+    public static String replaceBqStandard(String input) {
+        return input.replace("bq_standard:", "bq_standard.reward.");
+    }
     @Override
     public void initPanel() {
         super.initPanel();
 
-        if (qID == null) {
+        if (qID < 0) {
             mc.displayGuiScreen(this.parent);
             return;
         }
@@ -101,7 +106,7 @@ public class GuiRewardEditor extends GuiScreenCanvas implements IPEventListener,
 
             @Override
             protected boolean addResult(IFactoryData<IReward, NBTTagCompound> entry, int index, int cachedWidth) {
-                this.addPanel(new PanelButtonStorage<>(new GuiRectangle(0, index * 16, cachedWidth, 16, 0), 1, entry.getRegistryName().toString(), entry));
+                this.addPanel(new PanelButtonStorage<>(new GuiRectangle(0, index * 16, cachedWidth, 16, 0), 1, I18n.format(replaceBqStandard(entry.getRegistryName().toString())), entry));
                 return true;
             }
         };
@@ -113,7 +118,7 @@ public class GuiRewardEditor extends GuiScreenCanvas implements IPEventListener,
 
         PanelTextField<String> tfSearch = new PanelTextField<>(new GuiTransform(new Vector4f(0.5F, 0F, 1F, 0F), new GuiPadding(8, 32, 16, -48), 0), "", FieldFilterString.INSTANCE);
         tfSearch.setCallback(cvRegSearch::setSearchFilter);
-        tfSearch.setWatermark("Search...");
+        tfSearch.setWatermark(I18n.format( "bq_standard.task.search"));
         cvBackground.addPanel(tfSearch);
 
         qrList = new CanvasScrolling(new GuiTransform(GuiAlign.HALF_LEFT, new GuiPadding(16, 32, 16, 32), 0));
@@ -165,12 +170,12 @@ public class GuiRewardEditor extends GuiScreenCanvas implements IPEventListener,
         } else if (btn.getButtonID() == 3 && btn instanceof PanelButtonStorage) // Edit
         {
             IReward reward = ((PanelButtonStorage<IReward>) btn).getStoredValue();
-            GuiScreen editor = reward.getRewardEditor(this, Maps.immutableEntry(qID, quest));
+            GuiScreen editor = reward.getRewardEditor(this, new DBEntry<>(qID, quest));
 
             if (editor != null) {
                 mc.displayGuiScreen(editor);
             } else {
-                mc.displayGuiScreen(new GuiNbtEditor(this, reward.writeToNBT(new NBTTagCompound()), value -> {
+                mc.displayGuiScreen(new GuiNbtEditor(this, reward.writeToNBT(new NBTTagCompound(), false), value -> {
                     reward.readFromNBT(value);
                     SendChanges();
                 }));
@@ -187,15 +192,16 @@ public class GuiRewardEditor extends GuiScreenCanvas implements IPEventListener,
         for (int i = 0; i < dbRew.size(); i++) {
             IReward reward = dbRew.get(i).getValue();
             qrList.addPanel(new PanelButtonStorage<>(new GuiRectangle(0, i * 16, w - 16, 16, 0), 3, QuestTranslation.translate(reward.getUnlocalisedName()), reward));
-            qrList.addPanel(new PanelButtonStorage<>(new GuiRectangle(w - 16, i * 16, 16, 16, 0), 2, String.valueOf(TextFormatting.RED) + TextFormatting.BOLD + "x", reward));
+            qrList.addPanel(new PanelButtonStorage<>(new GuiRectangle(w - 16, i * 16, 16, 16, 0), 2, "" + TextFormatting.RED + TextFormatting.BOLD + "x", reward));
         }
     }
 
     private void SendChanges() {
         NBTTagCompound payload = new NBTTagCompound();
         NBTTagList dataList = new NBTTagList();
-        NBTTagCompound entry = NBTConverter.UuidValueType.QUEST.writeId(qID);
-        entry.setTag("config", quest.writeToNBT(new NBTTagCompound()));
+        NBTTagCompound entry = new NBTTagCompound();
+        entry.setInteger("questID", qID);
+        entry.setTag("config", quest.writeToNBT(new NBTTagCompound(), true));
         dataList.appendTag(entry);
         payload.setTag("data", dataList);
         payload.setInteger("action", 0);

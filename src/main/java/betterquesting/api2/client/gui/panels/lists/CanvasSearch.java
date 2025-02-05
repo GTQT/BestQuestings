@@ -8,13 +8,13 @@ import java.util.concurrent.TimeUnit;
 
 public abstract class CanvasSearch<T, E> extends CanvasScrollingBuffered {
 
-    private final Stopwatch searchTime = Stopwatch.createStarted();
-    private final ArrayDeque<T> pendingResults = new ArrayDeque<>();
-    private final List<T> savedResults = new ArrayList<>();
     private String searchTerm = "";
     private Iterator<E> searching = null;
+    private final Stopwatch searchTime = Stopwatch.createStarted();
     private int resultWidth = 256; // Used for organising ongoing search results even if the size changes midway
     private int searchIdx = 0; // Where are we in the ongoing search?
+    private final ArrayDeque<T> pendingResults = new ArrayDeque<>();
+    private final List<T> savedResults = new ArrayList<>();
 
     public CanvasSearch(IGuiRect rect) {
         super(rect);

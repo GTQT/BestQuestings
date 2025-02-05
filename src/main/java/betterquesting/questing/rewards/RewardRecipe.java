@@ -4,6 +4,7 @@ import betterquesting.api.questing.IQuest;
 import betterquesting.api.questing.rewards.IReward;
 import betterquesting.api2.client.gui.misc.IGuiRect;
 import betterquesting.api2.client.gui.panels.IGuiPanel;
+import betterquesting.api2.storage.DBEntry;
 import betterquesting.client.gui2.rewards.PanelRewardRecipe;
 import betterquesting.questing.rewards.factory.FactoryRewardRecipe;
 import net.minecraft.client.gui.GuiScreen;
@@ -14,8 +15,6 @@ import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
 
 import javax.annotation.Nullable;
-import java.util.Map;
-import java.util.UUID;
 
 public class RewardRecipe implements IReward {
     public String recipeNames = "minecraft:crafting_table\nminecraft:chest";
@@ -31,12 +30,12 @@ public class RewardRecipe implements IReward {
     }
 
     @Override
-    public boolean canClaim(EntityPlayer player, Map.Entry<UUID, IQuest> quest) {
+    public boolean canClaim(EntityPlayer player, DBEntry<IQuest> quest) {
         return true;
     }
 
     @Override
-    public void claimReward(EntityPlayer player, Map.Entry<UUID, IQuest> quest) {
+    public void claimReward(EntityPlayer player, DBEntry<IQuest> quest) {
         String[] recSplit = recipeNames.split("\n");
         ResourceLocation[] loc = new ResourceLocation[recSplit.length];
 
@@ -48,14 +47,14 @@ public class RewardRecipe implements IReward {
     @Nullable
     @Override
     @SideOnly(Side.CLIENT)
-    public IGuiPanel getRewardGui(IGuiRect rect, Map.Entry<UUID, IQuest> quest) {
+    public IGuiPanel getRewardGui(IGuiRect rect, DBEntry<IQuest> quest) {
         return new PanelRewardRecipe(rect, this);
     }
 
     @Nullable
     @Override
     @SideOnly(Side.CLIENT)
-    public GuiScreen getRewardEditor(GuiScreen parent, Map.Entry<UUID, IQuest> quest) {
+    public GuiScreen getRewardEditor(GuiScreen parent, DBEntry<IQuest> quest) {
         return null;
     }
 

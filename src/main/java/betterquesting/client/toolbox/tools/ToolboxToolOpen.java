@@ -8,7 +8,6 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.util.NonNullList;
 
 import java.util.List;
-import java.util.UUID;
 
 public class ToolboxToolOpen implements IToolboxTool {
     private CanvasQuestLine gui;
@@ -34,7 +33,7 @@ public class ToolboxToolOpen implements IToolboxTool {
         PanelButtonQuest btn = gui.getButtonAt(mx, my);
 
         if (btn != null) {
-            UUID qID = btn.getStoredValue().getKey();
+            int qID = btn.getStoredValue().getID();
 
             Minecraft mc = Minecraft.getMinecraft();
             mc.displayGuiScreen(new GuiQuest(mc.currentScreen, qID));

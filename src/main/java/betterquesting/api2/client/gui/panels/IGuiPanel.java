@@ -9,9 +9,9 @@ public interface IGuiPanel {
 
     void initPanel();
 
-    boolean isEnabled();
-
     void setEnabled(boolean state);
+
+    boolean isEnabled();
 
     void drawPanel(int mx, int my, float partialTick);
 

@@ -27,7 +27,6 @@ import net.minecraft.block.Block;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.block.model.ModelBakery;
 import net.minecraft.client.renderer.block.model.ModelResourceLocation;
-import net.minecraft.client.resources.IResourcePack;
 import net.minecraft.client.resources.SimpleReloadableResourceManager;
 import net.minecraft.item.Item;
 import net.minecraft.util.ResourceLocation;
@@ -35,45 +34,13 @@ import net.minecraftforge.client.ClientCommandHandler;
 import net.minecraftforge.client.model.ModelLoader;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.fml.client.registry.RenderingRegistry;
+import net.minecraftforge.fml.common.ObfuscationReflectionHelper;
 import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
 
-import java.util.List;
+import java.util.ArrayList;
 
 public class ClientProxy extends CommonProxy {
-    @SideOnly(Side.CLIENT)
-    public static void registerBlockModel(Block block) {
-        registerBlockModel(block, 0, block.getRegistryName().toString());
-    }
-
-    @SideOnly(Side.CLIENT)
-    public static void registerBlockModel(Block block, int meta, String name) {
-        Item item = Item.getItemFromBlock(block);
-        ModelResourceLocation model = new ModelResourceLocation(name, "inventory");
-
-        if (!name.equals(item.getRegistryName().toString())) {
-            ModelBakery.registerItemVariants(item, model);
-        }
-
-        ModelLoader.setCustomModelResourceLocation(item, meta, model);
-    }
-
-    @SideOnly(Side.CLIENT)
-    public static void registerItemModel(Item item) {
-        registerItemModel(item, 0, item.getRegistryName().toString());
-    }
-
-    @SideOnly(Side.CLIENT)
-    public static void registerItemModel(Item item, int meta, String name) {
-        ModelResourceLocation model = new ModelResourceLocation(name, "inventory");
-
-        if (!name.equals(item.getRegistryName().toString())) {
-            ModelBakery.registerItemVariants(item, model);
-        }
-
-        ModelLoader.setCustomModelResourceLocation(item, meta, model);
-    }
-
     @Override
     public boolean isClient() {
         return true;
@@ -99,7 +66,7 @@ public class ClientProxy extends CommonProxy {
 
         try {
             //String tmp = "defaultResourcePacks";
-            List<IResourcePack> list = Minecraft.getMinecraft().defaultResourcePacks;
+            ArrayList list = ObfuscationReflectionHelper.getPrivateValue(Minecraft.class, Minecraft.getMinecraft(), "field_110449_ao", "defaultResourcePacks");
             QuestResourcesFolder qRes1 = new QuestResourcesFolder();
             QuestResourcesFile qRes2 = new QuestResourcesFile();
             list.add(qRes1);
@@ -132,6 +99,23 @@ public class ClientProxy extends CommonProxy {
     }
 
     @SideOnly(Side.CLIENT)
+    public static void registerBlockModel(Block block) {
+        registerBlockModel(block, 0, block.getRegistryName().toString());
+    }
+
+    @SideOnly(Side.CLIENT)
+    public static void registerBlockModel(Block block, int meta, String name) {
+        Item item = Item.getItemFromBlock(block);
+        ModelResourceLocation model = new ModelResourceLocation(name, "inventory");
+
+        if (!name.equals(item.getRegistryName().toString())) {
+            ModelBakery.registerItemVariants(item, model);
+        }
+
+        ModelLoader.setCustomModelResourceLocation(item, meta, model);
+    }
+
+    @SideOnly(Side.CLIENT)
     private void registerItemModelSubtypes(Item item, int metaStart, int metaEnd, String name) {
         if (metaStart > metaEnd) {
             int tmp = metaStart;
@@ -142,6 +126,22 @@ public class ClientProxy extends CommonProxy {
         for (int m = metaStart; m <= metaEnd; m++) {
             registerItemModel(item, m, name);
         }
+    }
+
+    @SideOnly(Side.CLIENT)
+    public static void registerItemModel(Item item) {
+        registerItemModel(item, 0, item.getRegistryName().toString());
+    }
+
+    @SideOnly(Side.CLIENT)
+    public static void registerItemModel(Item item, int meta, String name) {
+        ModelResourceLocation model = new ModelResourceLocation(name, "inventory");
+
+        if (!name.equals(item.getRegistryName().toString())) {
+            ModelBakery.registerItemVariants(item, model);
+        }
+
+        ModelLoader.setCustomModelResourceLocation(item, meta, model);
     }
 
     @Override

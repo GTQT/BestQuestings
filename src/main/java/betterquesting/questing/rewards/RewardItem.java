@@ -8,6 +8,7 @@ import betterquesting.api.utils.BigItemStack;
 import betterquesting.api.utils.JsonHelper;
 import betterquesting.api2.client.gui.misc.IGuiRect;
 import betterquesting.api2.client.gui.panels.IGuiPanel;
+import betterquesting.api2.storage.DBEntry;
 import betterquesting.client.gui2.rewards.PanelRewardItem;
 import betterquesting.core.BetterQuesting;
 import betterquesting.questing.rewards.factory.FactoryRewardItem;
@@ -21,8 +22,6 @@ import org.apache.logging.log4j.Level;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
-import java.util.UUID;
 
 public class RewardItem implements IReward {
     public final List<BigItemStack> items = new ArrayList<>();
@@ -38,12 +37,12 @@ public class RewardItem implements IReward {
     }
 
     @Override
-    public boolean canClaim(EntityPlayer player, Map.Entry<UUID, IQuest> quest) {
+    public boolean canClaim(EntityPlayer player, DBEntry<IQuest> quest) {
         return true;
     }
 
     @Override
-    public void claimReward(EntityPlayer player, Map.Entry<UUID, IQuest> quest) {
+    public void claimReward(EntityPlayer player, DBEntry<IQuest> quest) {
         for (BigItemStack r : items) {
             BigItemStack stack = r.copy();
 
@@ -91,12 +90,12 @@ public class RewardItem implements IReward {
     }
 
     @Override
-    public IGuiPanel getRewardGui(IGuiRect rect, Map.Entry<UUID, IQuest> quest) {
+    public IGuiPanel getRewardGui(IGuiRect rect, DBEntry<IQuest> quest) {
         return new PanelRewardItem(rect, this);
     }
 
     @Override
-    public GuiScreen getRewardEditor(GuiScreen screen, Map.Entry<UUID, IQuest> quest) {
+    public GuiScreen getRewardEditor(GuiScreen screen, DBEntry<IQuest> quest) {
         return null;
     }
 }

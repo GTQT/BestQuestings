@@ -5,6 +5,7 @@ import betterquesting.api.questing.IQuest;
 import betterquesting.api.questing.rewards.IReward;
 import betterquesting.api2.client.gui.misc.IGuiRect;
 import betterquesting.api2.client.gui.panels.IGuiPanel;
+import betterquesting.api2.storage.DBEntry;
 import betterquesting.client.gui2.rewards.PanelRewardScoreboard;
 import betterquesting.core.BetterQuesting;
 import betterquesting.questing.rewards.factory.FactoryRewardScoreboard;
@@ -16,9 +17,6 @@ import net.minecraft.util.ResourceLocation;
 import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
 import org.apache.logging.log4j.Level;
-
-import java.util.Map;
-import java.util.UUID;
 
 public class RewardScoreboard implements IReward {
 
@@ -40,12 +38,12 @@ public class RewardScoreboard implements IReward {
     }
 
     @Override
-    public boolean canClaim(EntityPlayer player, Map.Entry<UUID, IQuest> quest) {
+    public boolean canClaim(EntityPlayer player, DBEntry<IQuest> quest) {
         return true;
     }
 
     @Override
-    public void claimReward(EntityPlayer player, Map.Entry<UUID, IQuest> quest) {
+    public void claimReward(EntityPlayer player, DBEntry<IQuest> quest) {
         Scoreboard board = player.getWorldScoreboard();
 
         ScoreObjective scoreObj = board.getObjective(score);
@@ -99,13 +97,13 @@ public class RewardScoreboard implements IReward {
 
     @Override
     @SideOnly(Side.CLIENT)
-    public IGuiPanel getRewardGui(IGuiRect rect, Map.Entry<UUID, IQuest> quest) {
+    public IGuiPanel getRewardGui(IGuiRect rect, DBEntry<IQuest> quest) {
         return new PanelRewardScoreboard(rect, this);
     }
 
     @Override
     @SideOnly(Side.CLIENT)
-    public GuiScreen getRewardEditor(GuiScreen screen, Map.Entry<UUID, IQuest> quest) {
+    public GuiScreen getRewardEditor(GuiScreen screen, DBEntry<IQuest> quest) {
         return null;
     }
 }

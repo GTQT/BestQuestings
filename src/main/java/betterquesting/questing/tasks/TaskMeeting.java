@@ -5,6 +5,7 @@ import betterquesting.api.questing.IQuest;
 import betterquesting.api.utils.ItemComparison;
 import betterquesting.api2.client.gui.misc.IGuiRect;
 import betterquesting.api2.client.gui.panels.IGuiPanel;
+import betterquesting.api2.storage.DBEntry;
 import betterquesting.api2.utils.ParticipantInfo;
 import betterquesting.client.gui2.editors.tasks.GuiEditTaskMeeting;
 import betterquesting.client.gui2.tasks.PanelTaskMeeting;
@@ -75,12 +76,12 @@ public class TaskMeeting implements ITaskTickable {
     }
 
     @Override
-    public void tickTask(@Nonnull ParticipantInfo pInfo, Map.Entry<UUID, IQuest> quest) {
+    public void tickTask(@Nonnull ParticipantInfo pInfo, DBEntry<IQuest> quest) {
         if (pInfo.PLAYER.ticksExisted % 60 == 0) detect(pInfo, quest);
     }
 
     @Override
-    public void detect(@Nonnull ParticipantInfo pInfo, Map.Entry<UUID, IQuest> quest) {
+    public void detect(@Nonnull ParticipantInfo pInfo, DBEntry<IQuest> quest) {
         if (!pInfo.PLAYER.isEntityAlive()) return;
 
         ResourceLocation targetID = new ResourceLocation(idName);
@@ -113,7 +114,7 @@ public class TaskMeeting implements ITaskTickable {
                 pInfo.ALL_UUIDS.forEach((uuid) -> {
                     if (!isComplete(uuid)) setComplete(uuid);
                 });
-                pInfo.markDirtyParty(quest.getKey());
+                pInfo.markDirtyParty(Collections.singletonList(quest.getID()));
                 return;
             }
         }
@@ -179,12 +180,12 @@ public class TaskMeeting implements ITaskTickable {
      */
     @Override
     @SideOnly(Side.CLIENT)
-    public GuiScreen getTaskEditor(GuiScreen parent, Map.Entry<UUID, IQuest> quest) {
+    public GuiScreen getTaskEditor(GuiScreen parent, DBEntry<IQuest> quest) {
         return new GuiEditTaskMeeting(parent, quest, this);
     }
 
     @Override
-    public IGuiPanel getTaskGui(IGuiRect rect, Map.Entry<UUID, IQuest> quest) {
+    public IGuiPanel getTaskGui(IGuiRect rect, DBEntry<IQuest> quest) {
         return new PanelTaskMeeting(rect, this);
     }
 

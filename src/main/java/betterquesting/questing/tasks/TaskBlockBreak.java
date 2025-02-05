@@ -6,6 +6,7 @@ import betterquesting.api.questing.tasks.ITask;
 import betterquesting.api.utils.ItemComparison;
 import betterquesting.api2.client.gui.misc.IGuiRect;
 import betterquesting.api2.client.gui.panels.IGuiPanel;
+import betterquesting.api2.storage.DBEntry;
 import betterquesting.api2.utils.ParticipantInfo;
 import betterquesting.client.gui2.tasks.PanelTaskBlockBreak;
 import betterquesting.core.BetterQuesting;
@@ -33,9 +34,9 @@ import javax.annotation.Nullable;
 import java.util.*;
 
 public class TaskBlockBreak implements ITask {
-    public final List<NbtBlockType> blockTypes = new ArrayList<>();
     private final Set<UUID> completeUsers = new TreeSet<>();
     private final TreeMap<UUID, int[]> userProgress = new TreeMap<>();
+    public final List<NbtBlockType> blockTypes = new ArrayList<>();
 
     public TaskBlockBreak() {
         blockTypes.add(new NbtBlockType());
@@ -62,7 +63,7 @@ public class TaskBlockBreak implements ITask {
     }
 
     @Override
-    public void detect(ParticipantInfo pInfo, Map.Entry<UUID, IQuest> quest) {
+    public void detect(ParticipantInfo pInfo, DBEntry<IQuest> quest) {
         pInfo.ALL_UUIDS.forEach((uuid) -> {
             if (isComplete(uuid)) return;
 
@@ -74,10 +75,10 @@ public class TaskBlockBreak implements ITask {
             setComplete(uuid);
         });
 
-        pInfo.markDirtyParty(quest.getKey());
+        pInfo.markDirtyParty(Collections.singletonList(quest.getID()));
     }
 
-    public void onBlockBreak(ParticipantInfo pInfo, Map.Entry<UUID, IQuest> quest, IBlockState state, BlockPos pos) {
+    public void onBlockBreak(ParticipantInfo pInfo, DBEntry<IQuest> quest, IBlockState state, BlockPos pos) {
         TileEntity tile = state.getBlock().hasTileEntity(state) ? pInfo.PLAYER.world.getTileEntity(pos) : null;
         NBTTagCompound tags = tile == null ? null : tile.writeToNBT(new NBTTagCompound());
 
@@ -238,13 +239,13 @@ public class TaskBlockBreak implements ITask {
 
     @Override
     @SideOnly(Side.CLIENT)
-    public IGuiPanel getTaskGui(IGuiRect rect, Map.Entry<UUID, IQuest> quest) {
+    public IGuiPanel getTaskGui(IGuiRect rect, DBEntry<IQuest> quest) {
         return new PanelTaskBlockBreak(rect, this);
     }
 
     @Override
     @SideOnly(Side.CLIENT)
-    public GuiScreen getTaskEditor(GuiScreen screen, Map.Entry<UUID, IQuest> context) {
+    public GuiScreen getTaskEditor(GuiScreen screen, DBEntry<IQuest> context) {
         return null;
     }
 

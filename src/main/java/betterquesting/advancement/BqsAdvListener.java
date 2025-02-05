@@ -9,17 +9,19 @@ import betterquesting.questing.tasks.TaskTrigger;
 import net.minecraft.advancements.ICriterionInstance;
 import net.minecraft.advancements.ICriterionTrigger;
 import net.minecraft.advancements.PlayerAdvancements;
+import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.util.Tuple;
+import net.minecraftforge.fml.relauncher.ReflectionHelper;
 
 import javax.annotation.Nonnull;
-import java.util.UUID;
+import java.lang.reflect.Field;
 
 public class BqsAdvListener<T extends ICriterionInstance> extends ICriterionTrigger.Listener<T> {
     private final ICriterionTrigger<T> trigType;
-    private final Tuple<UUID, Integer> mappedIDs;
+    private final Tuple<Integer, Integer> mappedIDs;
 
     @SuppressWarnings("ConstantConditions")
-    public BqsAdvListener(@Nonnull ICriterionTrigger<T> trigType, @Nonnull T critereon, UUID questID, int taskID) {
+    public BqsAdvListener(@Nonnull ICriterionTrigger<T> trigType, @Nonnull T critereon, int questID, int taskID) {
         super(critereon, null, "BQ_PROXY");
         this.trigType = trigType;
         this.mappedIDs = new Tuple<>(questID, taskID);
@@ -38,12 +40,12 @@ public class BqsAdvListener<T extends ICriterionInstance> extends ICriterionTrig
     @Override
     public void grantCriterion(PlayerAdvancements playerAdv) {
         try {
-            IQuest q = QuestingAPI.getAPI(ApiReference.QUEST_DB).get(mappedIDs.getFirst());
+            IQuest q = QuestingAPI.getAPI(ApiReference.QUEST_DB).getValue(mappedIDs.getFirst());
             if (q == null) return;
             ITask t = q.getTasks().getValue(mappedIDs.getSecond());
             if (!(t instanceof TaskTrigger)) return;
 
-            ((TaskTrigger) t).onCriteriaComplete(playerAdv.player, this, mappedIDs.getFirst());
+            ((TaskTrigger) t).onCriteriaComplete(((EntityPlayerMP) f_playerAdv.get(playerAdv)), this, mappedIDs.getFirst());
         } catch (Exception e) {
             BetterQuesting.logger.error(e);
         }
@@ -51,7 +53,7 @@ public class BqsAdvListener<T extends ICriterionInstance> extends ICriterionTrig
 
     //
     public boolean verify() {
-        IQuest q = QuestingAPI.getAPI(ApiReference.QUEST_DB).get(mappedIDs.getFirst());
+        IQuest q = QuestingAPI.getAPI(ApiReference.QUEST_DB).getValue(mappedIDs.getFirst());
         if (q == null) return false;
         ITask t = q.getTasks().getValue(mappedIDs.getSecond());
         if (t instanceof TaskTrigger) {
@@ -80,5 +82,12 @@ public class BqsAdvListener<T extends ICriterionInstance> extends ICriterionTrig
         i = 31 * i;// + this.advancement.hashCode();
         i = 31 * i + "BQ_PROXY".hashCode();
         return i;
+    }
+
+    private static final Field f_playerAdv;
+
+    static {
+        f_playerAdv = ReflectionHelper.findField(PlayerAdvancements.class, "field_192762_j", "player");
+        f_playerAdv.setAccessible(true);
     }
 }
