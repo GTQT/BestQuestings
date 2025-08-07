@@ -20,7 +20,6 @@ import betterquesting.api2.cache.QuestCache.QResetTime;
 import betterquesting.api2.client.gui.themes.gui_args.GArgsNone;
 import betterquesting.api2.client.gui.themes.presets.PresetGUIs;
 import betterquesting.api2.storage.DBEntry;
-import betterquesting.api2.storage.IDatabase;
 import betterquesting.api2.utils.ParticipantInfo;
 import betterquesting.api2.utils.QuestTranslation;
 import betterquesting.client.BQ_Keybindings;
@@ -235,29 +234,54 @@ public class EventHandler {
         UUID uuid = QuestingAPI.getQuestingUUID(player);
         boolean refreshCache = false;
 
-        if (!editMode && player.ticksExisted % 60 == 0) // Passive quest state check every 3 seconds
-        {
+        if (!editMode && player.ticksExisted % BQ_Settings.checkInterval == 0) {
             List<Integer> com = new ArrayList<>();
 
             for (DBEntry<IQuest> quest : activeQuests) {
-                if (!quest.getValue().isUnlocked(uuid)) continue; // Although it IS active, it cannot be completed yet
+                if (!quest.getValue().isUnlocked(uuid)) continue;
 
-                if (quest.getValue().canSubmit(player)) quest.getValue().update(player);
+                if (quest.getValue().canSubmit(player)) {
+                    quest.getValue().update(player);
+                }
 
                 if (quest.getValue().isComplete(uuid) && !quest.getValue().canSubmit(player)) {
                     refreshCache = true;
                     qc.markQuestDirty(quest.getID());
-
                     com.add(quest.getID());
-                    if (!quest.getValue().getProperty(NativeProps.SILENT))
+
+                    if (!quest.getValue().getProperty(NativeProps.SILENT)) {
                         postPresetNotice(quest.getValue(), player, 2);
+                    }
+
+                    // 检测任务状态
+                    quest.getValue().detect(player);
 
                     DBEntry<IParty> partyEntry = PartyManager.INSTANCE.getParty(uuid);
                     if (partyEntry != null && player.getServer() != null) {
                         for (UUID memID : partyEntry.getValue().getMembers()) {
+                            // 跳过当前玩家
+                            if (memID.equals(uuid)) continue;
+
                             EntityPlayerMP memPlayer = player.getServer().getPlayerList().getPlayerByUsername(NameCache.INSTANCE.getName(memID));
                             if (memPlayer != null) {
-                                quest.getValue().detect(memPlayer);
+                                // 如果是非全局任务且启用了队伍共享
+                                if (!BQ_Settings.teamTestedIndependent && !quest.getValue().getProperty(NativeProps.GLOBAL)) {
+                                    // 如果队员尚未完成该任务
+                                    if (!quest.getValue().isComplete(memID)) {
+                                        // 强制队员完成任务（包括前置）
+                                        quest.getValue().forceUnlock(memPlayer);
+
+                                        // 标记成员缓存脏
+                                        QuestCache memQC = memPlayer.getCapability(CapabilityProviderQuestCache.CAP_QUEST_CACHE, null);
+                                        if (memQC != null) {
+                                            memQC.markQuestDirty(quest.getID());
+                                            memQC.updateCache(memPlayer);
+                                        }
+                                    }
+                                } else {
+                                    // 独立模式或全局任务：只进行检测
+                                    quest.getValue().detect(memPlayer);
+                                }
                             }
                         }
                     }
@@ -431,104 +455,53 @@ public class EventHandler {
 
     @SubscribeEvent
     public void onServerTick(ServerTickEvent event) {
-        MinecraftServer server = FMLCommonHandler.instance().getMinecraftServerInstance();
-        int tickCounter = server.getTickCounter();
-
-        // START 阶段处理
         if (event.phase == Phase.START) {
-            handleStartPhase(server, tickCounter);
-        }
-        // END 阶段处理
-        else if (event.phase == Phase.END) {
-            handleEndPhase(server, tickCounter);
-        }
-    }
-
-    private void handleStartPhase(MinecraftServer server, int tickCounter) {
-        // 执行周期性基础操作
-        if (tickCounter % BQ_Settings.checkInterval == 0) {
-            AdvListenerManager.INSTANCE.updateAll();
-        }
-
-        // 选择检测模式
-        if (BQ_Settings.useFullScanMode) {
-            handleFullScanMode(server, tickCounter);
-        } else {
-            handleDeltaScanMode();
-        }
-    }
-
-    private void handleFullScanMode(MinecraftServer server, int tickCounter) {
-        if (tickCounter % BQ_Settings.checkInterval != 0) return;
-
-        for (EntityPlayer player : server.getPlayerList().getPlayers()) {
-            checkPlayerQuests(player);
-        }
-    }
-
-    private void handleDeltaScanMode() {
-        processingUpdates = true;
-        try {
-            for (EntityPlayer player : playerInventoryUpdates) {
-                checkPlayerQuests(player);
+            if (FMLCommonHandler.instance().getMinecraftServerInstance().getTickCounter() % BQ_Settings.checkInterval == 0) {
+                AdvListenerManager.INSTANCE.updateAll();
             }
-        } finally {
+            processingUpdates = true;
+            for (EntityPlayer player : playerInventoryUpdates) {
+                if (player == null || player.inventory == null) {
+                    continue;
+                }
+                ParticipantInfo pInfo = new ParticipantInfo(player);
+
+                for (DBEntry<IQuest> entry : QuestingAPI.getAPI(ApiReference.QUEST_DB).bulkLookup(pInfo.getSharedQuests())) {
+                    for (DBEntry<ITask> task : entry.getValue().getTasks().getEntries()) {
+                        if (task.getValue() instanceof ITaskInventory)
+                            ((ITaskInventory) task.getValue()).onInventoryChange(entry, pInfo);
+                    }
+                }
+            }
             playerInventoryUpdates.clear();
             processingUpdates = false;
         }
-    }
 
-    private void checkPlayerQuests(EntityPlayer player) {
-        if (player == null || player.inventory == null) return;
+        if (event.phase != Phase.END) return;
 
-        ParticipantInfo pInfo = new ParticipantInfo(player);
-        IDatabase<IQuest> questDB = QuestingAPI.getAPI(ApiReference.QUEST_DB);
+        MinecraftServer server = FMLCommonHandler.instance().getMinecraftServerInstance();
 
-        for (DBEntry<IQuest> questEntry : questDB.bulkLookup(pInfo.getSharedQuests())) {
-            for (DBEntry<ITask> taskEntry : questEntry.getValue().getTasks().getEntries()) {
-                if (taskEntry.getValue() instanceof ITaskInventory) {
-                    ((ITaskInventory) taskEntry.getValue()).onInventoryChange(questEntry, pInfo);
-                }
-            }
-        }
-    }
-
-    private void handleEndPhase(MinecraftServer server, int tickCounter) {
-        // 处理服务器类型切换逻辑
         if (!server.isDedicatedServer()) {
-            boolean wasOpenToLAN = openToLAN;
+            boolean tmp = openToLAN;
             openToLAN = server instanceof IntegratedServer && ((IntegratedServer) server).getPublic();
-            if (openToLAN && !wasOpenToLAN) {
-                opQueue.addAll(server.getPlayerList().getPlayers());
-            }
+            if (openToLAN && !tmp) opQueue.addAll(server.getPlayerList().getPlayers());
         } else if (!openToLAN) {
             openToLAN = true;
         }
 
-        // 处理玩家名称同步
-        processOpQueue(server);
-
-        // 清理过期邀请
-        if (tickCounter % BQ_Settings.checkInterval == 0) {
-            PartyInvitations.INSTANCE.cleanExpired();
-        }
-    }
-
-    private void processOpQueue(MinecraftServer server) {
         while (!opQueue.isEmpty()) {
             EntityPlayerMP playerMP = opQueue.poll();
-            if (playerMP == null) continue;
-
-            UUID playerId = QuestingAPI.getQuestingUUID(playerMP);
-            if (!NameCache.INSTANCE.updateName(playerMP)) continue;
-
-            DBEntry<IParty> party = PartyManager.INSTANCE.getParty(playerId);
-            if (party != null) {
-                NetNameSync.quickSync(null, party.getID());
-            } else {
-                NetNameSync.sendNames(new EntityPlayerMP[]{playerMP}, new UUID[]{playerId}, null);
+            if (playerMP != null && NameCache.INSTANCE.updateName(playerMP)) {
+                DBEntry<IParty> party = PartyManager.INSTANCE.getParty(QuestingAPI.getQuestingUUID(playerMP));
+                if (party != null) {
+                    NetNameSync.quickSync(null, party.getID());
+                } else {
+                    NetNameSync.sendNames(new EntityPlayerMP[]{playerMP}, new UUID[]{QuestingAPI.getQuestingUUID(playerMP)}, null);
+                }
             }
         }
+
+        if (server.getTickCounter() % BQ_Settings.checkInterval == 0) PartyInvitations.INSTANCE.cleanExpired();
     }
 
     @SubscribeEvent(priority = EventPriority.LOWEST)
@@ -773,13 +746,13 @@ public class EventHandler {
     public void onEntityCreated(EntityJoinWorldEvent event) {
         if (!(event.getEntity() instanceof EntityPlayer) || event.getEntity().world.isRemote) return;
 
-        if (!BQ_Settings.useFullScanMode) PlayerContainerListener.refreshListener((EntityPlayer) event.getEntity());
+        PlayerContainerListener.refreshListener((EntityPlayer) event.getEntity());
     }
 
     @SubscribeEvent
     public void onPlayerLoggedOut(PlayerEvent.PlayerLoggedOutEvent event) {
         if (event.player == null || event.player.world.isRemote) return;
-        if (!BQ_Settings.useFullScanMode) PlayerContainerListener.removeListener(event.player);
+        PlayerContainerListener.removeListener(event.player);
     }
 
     @SubscribeEvent

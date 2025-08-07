@@ -40,18 +40,17 @@ public class QuestInstance implements IQuest {
     private final RewardStorage rewards = new RewardStorage();
 
     private final HashMap<UUID, NBTTagCompound> completeUsers = new HashMap<>();
-    private int[] preRequisites = new int[0];
     private final TIntObjectMap<RequirementType> prereqTypes = new TIntObjectHashMap<>();
-
     private final PropertyContainer qInfo = new PropertyContainer();
+    private int[] preRequisites = new int[0];
 
     public QuestInstance() {
         this.setupProps();
     }
 
     private void setupProps() {
-        setupValue(NativeProps.NAME, "New Quest");
-        setupValue(NativeProps.DESC, "No Description");
+        setupValue(NativeProps.NAME, "新任务");
+        setupValue(NativeProps.DESC, "暂无描述");
 
         setupValue(NativeProps.ICON, new BigItemStack(Items.NETHER_STAR));
 
@@ -101,6 +100,69 @@ public class QuestInstance implements IQuest {
         } else if (done > 0 && qInfo.getProperty(NativeProps.SIMULTANEOUS)) // TODO: There is actually an exploit here to do with locked progression bypassing simultaneous reset conditions. Fix?
         {
             resetUser(playerID, false);
+        }
+    }
+
+    /**
+     * 强制解锁任务，根据玩家当前状态检测并更新任务进度。
+     *
+     * @param player 需要强制解锁任务的玩家对象
+     */
+    @Override
+    public void forceUnlock(EntityPlayer player) {
+        UUID playerID = QuestingAPI.getQuestingUUID(player);
+        QuestCache qc = player.getCapability(CapabilityProviderQuestCache.CAP_QUEST_CACHE, null);
+        if (qc == null) return;
+        int questID = QuestDatabase.INSTANCE.getID(this);
+
+        // 如果任务已完成且不可重复，则直接返回
+        if (isComplete(playerID) && qInfo.getProperty(NativeProps.REPEAT_TIME) < 0) {
+            return;
+        }
+
+        // 递归完成所有未完成的前置任务
+        if (!isUnlocked(playerID)) {
+            Set<Integer> processed = new HashSet<>();
+            Stack<IQuest> stack = new Stack<>();
+            stack.push(this);
+            processed.add(questID);
+
+            while (!stack.isEmpty()) {
+                IQuest current = stack.peek();
+                int currentID = QuestDatabase.INSTANCE.getID(current);
+                boolean foundUnfinished = false;
+
+                // 检查所有前置任务
+                for (int preReqID : current.getRequirements()) {
+                    IQuest preQuest = QuestDatabase.INSTANCE.getValue(preReqID);
+                    if (preQuest == null || processed.contains(preReqID)) continue;
+
+                    // 如果前置任务未完成，将其加入处理栈
+                    if (!preQuest.isComplete(playerID)) {
+                        stack.push(preQuest);
+                        processed.add(preReqID);
+                        foundUnfinished = true;
+                        break; // 优先处理最近发现的前置
+                    }
+                }
+
+                // 如果所有前置都已完成，处理当前任务
+                if (!foundUnfinished) {
+                    stack.pop(); // 移除已完成处理的任务
+
+                    // 如果任务未完成，强制标记为完成
+                    if (!current.isComplete(playerID)) {
+                        current.setComplete(playerID, System.currentTimeMillis());
+                        qc.markQuestDirty(currentID);
+                    }
+                }
+            }
+        }
+
+        // 强制完成当前任务（如果尚未完成）
+        if (!isComplete(playerID)) {
+            setComplete(playerID, System.currentTimeMillis());
+            qc.markQuestDirty(questID);
         }
     }
 

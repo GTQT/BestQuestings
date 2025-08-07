@@ -42,9 +42,9 @@ public class ConfigHandler {
 
         BQ_Settings.spawnWithQuestBook = config.getBoolean("Spawn with Quest Book", Configuration.CATEGORY_GENERAL, true, "If true, then the player will spawn with a Quest Book when they first join the world");
         BQ_Settings.saveQuestsWithNames = config.getBoolean("DefaultQuests saves using Names", Configuration.CATEGORY_GENERAL, false, "If true, whenever you save your quests, they will have the first 16 characters of the quest name in the file name, this is useful if you want to be easily able to identify quests in file explorer, however it is less compatible when using version control.");
-        config.save();
 
-        BQ_Settings.useFullScanMode = config.getBoolean("Use Full Scan Mode", Configuration.CATEGORY_GENERAL, true, "If true, then the questing system will use the full scan mode");
+        BQ_Settings.teamTestedIndependent = config.getBoolean("Team Task Independent", Configuration.CATEGORY_GENERAL, false, "If true, if a teammate does not have the necessary conditions for a mission, they will not be automatically completed by one of the players completing the task");
         BQ_Settings.checkInterval = config.getInt("Quest Check Interval", Configuration.CATEGORY_GENERAL, 20, 1, 100, "The interval in ticks at which the questing system checks for updates");
+        config.save();
     }
 }

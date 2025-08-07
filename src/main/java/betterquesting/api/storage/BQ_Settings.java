@@ -39,6 +39,6 @@ public class BQ_Settings {
     public static boolean spawnWithQuestBook = true;
     public static boolean saveQuestsWithNames = false;
 
-    public static boolean useFullScanMode = true;
+    public static boolean teamTestedIndependent = false;
     public static int checkInterval = 20;
 }
