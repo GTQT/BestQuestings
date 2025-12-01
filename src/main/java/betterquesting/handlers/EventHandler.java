@@ -334,7 +334,7 @@ public class EventHandler {
             qc.updateCache(player);
         }
 
-        if (qc.getDirtyQuests().length > 0) NetQuestSync.sendSync(player, qc.getDirtyQuests(), false, true);
+        if (qc.getDirtyQuests().length > 0) NetQuestSync.sendSync(player, qc.getDirtyQuests(), false, true, true);
         qc.cleanAllQuests();
     }
 
