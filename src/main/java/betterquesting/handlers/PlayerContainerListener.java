@@ -1,12 +1,6 @@
 package betterquesting.handlers;
 
-import betterquesting.api.api.ApiReference;
 import betterquesting.api.api.QuestingAPI;
-import betterquesting.api.questing.IQuest;
-import betterquesting.api.questing.tasks.ITask;
-import betterquesting.api2.storage.DBEntry;
-import betterquesting.api2.utils.ParticipantInfo;
-import betterquesting.questing.tasks.ITaskInventory;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.inventory.Container;
 import net.minecraft.inventory.IContainerListener;
@@ -20,6 +14,11 @@ import java.util.UUID;
 
 public class PlayerContainerListener implements IContainerListener {
     private static final HashMap<UUID, PlayerContainerListener> LISTEN_MAP = new HashMap<>();
+    private EntityPlayer player;
+
+    private PlayerContainerListener(@Nonnull EntityPlayer player) {
+        this.player = player;
+    }
 
     public static void refreshListener(@Nonnull EntityPlayer player) {
         UUID uuid = QuestingAPI.getQuestingUUID(player);
@@ -40,12 +39,6 @@ public class PlayerContainerListener implements IContainerListener {
     public static void removeListener(@Nonnull EntityPlayer player) {
         UUID uuid = QuestingAPI.getQuestingUUID(player);
         LISTEN_MAP.remove(uuid);
-    }
-
-    private EntityPlayer player;
-
-    private PlayerContainerListener(@Nonnull EntityPlayer player) {
-        this.player = player;
     }
 
     @Override

@@ -11,6 +11,7 @@ import betterquesting.api.events.QuestEvent.Type;
 import betterquesting.api.placeholders.FluidPlaceholder;
 import betterquesting.api.properties.NativeProps;
 import betterquesting.api.questing.IQuest;
+import betterquesting.api.questing.IQuestDatabase;
 import betterquesting.api.questing.party.IParty;
 import betterquesting.api.questing.tasks.ITask;
 import betterquesting.api.storage.BQ_Settings;
@@ -74,8 +75,10 @@ import net.minecraftforge.event.entity.player.PlayerEvent.Clone;
 import net.minecraftforge.event.entity.player.PlayerInteractEvent;
 import net.minecraftforge.event.world.BlockEvent;
 import net.minecraftforge.event.world.WorldEvent;
+import net.minecraftforge.fluids.FluidStack;
 import net.minecraftforge.fml.client.event.ConfigChangedEvent;
 import net.minecraftforge.fml.common.FMLCommonHandler;
+import net.minecraftforge.fml.common.eventhandler.Event;
 import net.minecraftforge.fml.common.eventhandler.EventPriority;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.common.gameevent.InputEvent;
@@ -101,6 +104,65 @@ public class EventHandler {
     private final ArrayDeque<EntityPlayerMP> opQueue = new ArrayDeque<>();
     private boolean openToLAN = false;
 
+    @SubscribeEvent
+    public void onBQInventoryUpdate(BQInventoryUpdateEvent event) {
+        EntityPlayer player = event.getPlayer();
+        List<ItemStack> changedItems = event.getChangedItems();
+
+        // 只有服务器端处理
+        if (player.world.isRemote) return;
+
+        // 获取玩家的任务并检查
+        checkInventoryForTasks(player, changedItems);
+    }
+
+    @SubscribeEvent
+    public void onBQFLUIDInventoryUpdate(BQFluidInventoryUpdateEvent event) {
+        EntityPlayer player = event.getPlayer();
+        List<FluidStack> changedFluids = event.getChangedFluids();
+
+        // 只有服务器端处理
+        if (player.world.isRemote) return;
+
+        // 获取玩家的任务并检查
+        checkFluidInventoryForTasks(player, changedFluids);
+    }
+
+    /**
+     * 检查玩家物品变化是否满足任务需求
+     * @param player 玩家
+     * @param changedItems 变化的物品列表（可能来自外部模组）
+     */
+    private static void checkInventoryForTasks(EntityPlayer player, List<ItemStack> changedItems) {
+        if (player == null || player.world.isRemote) return;
+
+        processingUpdates = true;
+
+        ParticipantInfo pInfo = new ParticipantInfo(player);
+
+        for (DBEntry<IQuest> entry : QuestingAPI.getAPI(ApiReference.QUEST_DB).bulkLookup(pInfo.getSharedQuests())) {
+            for (DBEntry<ITask> task : entry.getValue().getTasks().getEntries()) {
+                if (task.getValue() instanceof ITaskInventory)
+                    ((ITaskInventory) task.getValue()).onInventoryChange(entry, pInfo, changedItems);
+            }
+        }
+        processingUpdates = false;
+    }
+    private static void checkFluidInventoryForTasks(EntityPlayer player, List<FluidStack> changedFluids) {
+        if (player == null || player.world.isRemote) return;
+
+        processingUpdates = true;
+
+        ParticipantInfo pInfo = new ParticipantInfo(player);
+
+        for (DBEntry<IQuest> entry : QuestingAPI.getAPI(ApiReference.QUEST_DB).bulkLookup(pInfo.getSharedQuests())) {
+            for (DBEntry<ITask> task : entry.getValue().getTasks().getEntries()) {
+                if (task.getValue() instanceof TaskFluid)
+                    ((TaskFluid) task.getValue()).onFluidInventoryChange(entry, pInfo, changedFluids);
+            }
+        }
+        processingUpdates = false;
+    }
     // TODO: Create a new message inbox system for these things. On screen popups aren't ideal in combat
     private static void postPresetNotice(IQuest quest, EntityPlayer player, int preset) {
         if (!(player instanceof EntityPlayerMP)) return;

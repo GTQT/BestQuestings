@@ -76,16 +76,25 @@ public class TaskRetrieval implements ITaskInventory, IItemTask {
     }
 
     @Override
-    public void onInventoryChange(@Nonnull DBEntry<IQuest> quest, @Nonnull ParticipantInfo pInfo) {
+    public void onInventoryChange(DBEntry<IQuest> quest, ParticipantInfo pInfo, List<ItemStack> changedItems) {
         if (!consume || autoConsume) {
-            detect(pInfo, quest);
+            detect(pInfo, quest, changedItems);
         }
     }
 
     @Override
-    public void detect(ParticipantInfo pInfo, DBEntry<IQuest> quest) {
+    public void detect(ParticipantInfo pInfo, DBEntry<IQuest> quest){
+        detect(pInfo, quest, null);
+    }
+
+    public void detect(ParticipantInfo pInfo, DBEntry<IQuest> quest, List<ItemStack> changedItems) {
         if (isComplete(pInfo.UUID))
             return;
+
+        // 如果是消耗模式且有额外物品列表，直接返回
+        if (changedItems != null && consume) {
+            return;
+        }
 
         // List of (player uuid, [progress per required item])
         final List<Tuple<UUID, int[]>> progress = getBulkProgress(consume ? Collections.singletonList(pInfo.UUID) : pInfo.ALL_UUIDS);
@@ -108,6 +117,70 @@ public class TaskRetrieval implements ITaskInventory, IItemTask {
                 }
             }
         }
+
+        // 如果changedItems不为空，只检查changedItems
+        if (changedItems != null && !changedItems.isEmpty()) {
+            updated = checkChangedItems(changedItems, progress, pInfo) || updated;
+        } else {
+            // 否则检查玩家背包
+            updated = checkPlayerInventories(pInfo, progress) || updated;
+        }
+
+        if (updated)
+            setBulkProgress(progress);
+        // Reuse progress
+        checkAndComplete(pInfo, quest, updated, progress);
+    }
+
+    /**
+     * 检查changedItems中的物品
+     * changedItems被视为额外物品，不参与消耗，但进度共享
+     */
+    private boolean checkChangedItems(List<ItemStack> changedItems, List<Tuple<UUID, int[]>> progress, ParticipantInfo pInfo) {
+        boolean updated = false;
+
+        // 为每个玩家创建剩余数量计数器
+        int[] remCounts = new int[progress.size()];
+
+        for (ItemStack stack : changedItems) {
+            if (stack.isEmpty())
+                continue;
+
+            // 初始化剩余数量计数器
+            Arrays.fill(remCounts, stack.getCount());
+
+            for (int j = 0; j < requiredItems.size(); j++) {
+                BigItemStack rStack = requiredItems.get(j);
+
+                // 检查物品是否匹配
+                if (!ItemComparison.StackMatch(rStack.getBaseStack(), stack, !ignoreNBT, partialMatch)
+                        && !ItemComparison.OreDictionaryMatch(rStack.getOreIngredient(), rStack.GetTagCompound(), stack, !ignoreNBT, partialMatch)) {
+                    continue;
+                }
+
+                // changedItems不参与消耗，只增加进度，且同组玩家共享
+                for (int n = 0; n < progress.size(); n++) {
+                    Tuple<UUID, int[]> value = progress.get(n);
+                    if (value.getSecond()[j] >= rStack.stackSize)
+                        continue;
+
+                    int remaining = rStack.stackSize - value.getSecond()[j];
+                    int temp = Math.min(remaining, remCounts[n]);
+                    remCounts[n] -= temp;
+                    value.getSecond()[j] += temp;
+                    updated = true;
+                }
+            }
+        }
+
+        return updated;
+    }
+
+    /**
+     * 检查玩家背包（原逻辑）
+     */
+    private boolean checkPlayerInventories(ParticipantInfo pInfo, List<Tuple<UUID, int[]>> progress) {
+        boolean updated = false;
 
         final List<InventoryPlayer> invoList;
         if (consume) {
@@ -156,10 +229,7 @@ public class TaskRetrieval implements ITaskInventory, IItemTask {
             }
         }
 
-        if (updated)
-            setBulkProgress(progress);
-        // Reuse progress
-        checkAndComplete(pInfo, quest, updated, progress);
+        return updated;
     }
 
     private void checkAndComplete(ParticipantInfo pInfo, DBEntry<IQuest> quest, boolean resync) {

@@ -39,7 +39,7 @@ import java.util.*;
 public class TaskFluid implements ITaskInventory, IFluidTask, IItemTask {
 
     private static final boolean DEFAULT_IGNORE_NBT = false;
-    private static final boolean DEFAULT_CONSUME = true;
+    private static final boolean DEFAULT_CONSUME = false;
     private static final boolean DEFAULT_GROUP_DETECT = false;
     private static final boolean DEFAULT_AUTO_CONSUME = false;
     private final Set<UUID> completeUsers = new TreeSet<>();
@@ -72,18 +72,138 @@ public class TaskFluid implements ITaskInventory, IFluidTask, IItemTask {
     }
 
     @Override
-    public void onInventoryChange(@Nonnull DBEntry<IQuest> quest, @Nonnull ParticipantInfo pInfo) {
+    public void onInventoryChange(DBEntry<IQuest> quest, ParticipantInfo pInfo, List<ItemStack> changedItems) {
         if (!consume || autoConsume) {
-            detect(pInfo, quest);
+            detect(pInfo, quest, changedItems);
         }
     }
 
-    @Override
-    public void detect(ParticipantInfo pInfo, DBEntry<IQuest> quest) {
-        if (isComplete(pInfo.UUID)) return;
+    /**
+     * 处理外部流体系统直接提供的流体变化
+     * 注意：这种方法与玩家背包完全无关，只处理外部模组直接提供的FluidStack
+     * 外部流体无法被消耗，因此此方法不支持消耗模式
+     */
+    public void onFluidInventoryChange(DBEntry<IQuest> quest, ParticipantInfo pInfo, List<FluidStack> changedFluids) {
+        if (!consume || autoConsume) {
+            detectExternalFluids(pInfo, quest, changedFluids);
+        }
+    }
 
-        // Removing the consume check here would make the task cheaper on groups and for that reason sharing is
-        // restricted to detect only
+    /**
+     * 专门处理外部流体系统提供的流体
+     * 与玩家背包无关，不参与消耗模式
+     */
+    public void detectExternalFluids(ParticipantInfo pInfo, DBEntry<IQuest> quest, List<FluidStack> changedFluids) {
+        if (isComplete(pInfo.UUID))
+            return;
+
+        // 外部流体无法被消耗，如果是消耗模式则直接返回
+        if (consume) {
+            return;
+        }
+
+        // List of (player uuid, [progress per required fluid])
+        List<Tuple<UUID, int[]>> progress = getBulkProgress(pInfo.ALL_UUIDS);
+        boolean updated = false;
+
+        // 非消耗模式的进度重置逻辑
+        if (groupDetect) {
+            // 重置所有检测进度
+            progress.forEach((value) -> Arrays.fill(value.getSecond(), 0));
+        } else {
+            for (int i = 0; i < requiredFluids.size(); i++) {
+                final int r = requiredFluids.get(i).amount;
+                for (Tuple<UUID, int[]> value : progress) {
+                    int n = value.getSecond()[i];
+                    if (n != 0 && n < r) {
+                        value.getSecond()[i] = 0;
+                        updated = true;
+                    }
+                }
+            }
+        }
+
+        // 只检查外部流体列表
+        if (changedFluids != null && !changedFluids.isEmpty()) {
+            updated = checkExternalFluids(changedFluids, progress) || updated;
+        }
+
+        if (updated) {
+            setBulkProgress(progress);
+            checkAndComplete(pInfo, quest, updated, progress);
+        }
+    }
+
+    /**
+     * 直接检查外部流体列表中的流体
+     * 与玩家背包无关，不参与消耗，但进度共享
+     */
+    private boolean checkExternalFluids(List<FluidStack> changedFluids, List<Tuple<UUID, int[]>> progress) {
+        boolean updated = false;
+
+        for (FluidStack fluidStack : changedFluids) {
+            if (fluidStack == null || fluidStack.amount <= 0) continue;
+
+            // 为每种所需流体检查
+            for (int j = 0; j < requiredFluids.size(); j++) {
+                FluidStack rStack = requiredFluids.get(j);
+
+                // 检查是否还需要这种流体
+                boolean needsThisFluid = false;
+                for (Tuple<UUID, int[]> value : progress) {
+                    if (value.getSecond()[j] < rStack.amount) {
+                        needsThisFluid = true;
+                        break;
+                    }
+                }
+                if (!needsThisFluid) continue;
+
+                // 检查流体是否匹配
+                FluidStack compareStack = rStack.copy();
+                if (ignoreNbt) {
+                    compareStack.tag = null;
+                    fluidStack = fluidStack.copy();
+                    fluidStack.tag = null;
+                }
+
+                if (!fluidStack.isFluidEqual(compareStack)) continue;
+
+                // 更新所有玩家的进度（外部流体不参与消耗，只增加进度）
+                for (Tuple<UUID, int[]> value : progress) {
+                    if (value.getSecond()[j] >= rStack.amount) continue;
+                    int remaining = rStack.amount - value.getSecond()[j];
+
+                    // 计算可以添加的流体量
+                    int amountToAdd = Math.min(fluidStack.amount, remaining);
+                    if (amountToAdd <= 0) continue;
+
+                    value.getSecond()[j] += amountToAdd;
+                    updated = true;
+                }
+
+                break; // 处理完这种流体，继续下一个流体
+            }
+        }
+
+        return updated;
+    }
+
+
+    @Override
+    public void detect(ParticipantInfo pInfo, DBEntry<IQuest> quest){
+        detect(pInfo, quest, null);
+    }
+
+    public void detect(ParticipantInfo pInfo, DBEntry<IQuest> quest, List<ItemStack> changedItems) {
+        if (isComplete(pInfo.UUID))
+            return;
+
+        // 如果是消耗模式且有额外物品列表，直接返回
+        if (changedItems != null && consume) {
+            return;
+        }
+
+        // List of (player uuid, [progress per required fluid])
         List<Tuple<UUID, int[]>> progress = getBulkProgress(
                 consume ? Collections.singletonList(pInfo.UUID) : pInfo.ALL_UUIDS);
         boolean updated = false;
@@ -105,10 +225,102 @@ public class TaskFluid implements ITaskInventory, IFluidTask, IItemTask {
             }
         }
 
+        // 如果changedItems不为空，只检查changedItems
+        if (changedItems != null && !changedItems.isEmpty()) {
+            updated = checkChangedFluidItems(changedItems, progress, pInfo) || updated;
+        } else {
+            // 否则检查玩家背包
+            updated = checkPlayerFluidInventories(pInfo, progress) || updated;
+        }
+
+        if (updated) {
+            setBulkProgress(progress);
+            // 重用progress参数，避免重新获取
+            checkAndComplete(pInfo, quest, updated, progress);
+        }
+    }
+
+    /**
+     * 检查changedItems中的流体容器
+     * changedItems被视为额外物品，不参与消耗，但进度共享
+     */
+    private boolean checkChangedFluidItems(List<ItemStack> changedItems, List<Tuple<UUID, int[]>> progress, ParticipantInfo pInfo) {
+        boolean updated = false;
+
+        for (ItemStack stack : changedItems) {
+            if (stack.isEmpty()) continue;
+
+            // 为检索流体信息创建一个副本
+            ItemStack singleStack = stack.copy();
+            singleStack.setCount(1);
+
+            // 获取流体处理器
+            IFluidHandlerItem handler = FluidUtil.getFluidHandler(singleStack);
+            if (handler == null) continue;
+
+            // 为每种所需流体检查容器
+            for (int j = 0; j < requiredFluids.size(); j++) {
+                FluidStack rStack = requiredFluids.get(j);
+
+                // 检查是否还需要这种流体
+                boolean needsThisFluid = false;
+                for (Tuple<UUID, int[]> value : progress) {
+                    if (value.getSecond()[j] < rStack.amount) {
+                        needsThisFluid = true;
+                        break;
+                    }
+                }
+                if (!needsThisFluid) continue;
+
+                // 尝试抽取流体（模拟，不实际抽取）
+                FluidStack rStackOg = rStack.copy();
+                rStackOg.amount = (int) Math.ceil((double) rStack.amount / (double) stack.getCount());
+                FluidStack sample = handler.drain(rStackOg, false);
+                if (sample == null || sample.amount <= 0) continue;
+
+                // 检查流体是否匹配
+                FluidStack compareStack = rStack.copy();
+                if (ignoreNbt) {
+                    compareStack.tag = null;
+                    sample = sample.copy();
+                    sample.tag = null;
+                }
+
+                if (!sample.isFluidEqual(compareStack)) continue;
+
+                // 更新所有玩家的进度（changedItems不参与消耗，只增加进度）
+                for (Tuple<UUID, int[]> value : progress) {
+                    if (value.getSecond()[j] >= rStack.amount) continue;
+                    int remaining = rStack.amount - value.getSecond()[j];
+
+                    FluidStack drain = rStack.copy();
+                    drain.amount = (int) Math.ceil((double) remaining / (double) stack.getCount());
+                    if (ignoreNbt) drain.tag = null;
+                    if (drain.amount <= 0) continue;
+
+                    FluidStack fluid = handler.drain(drain, false); // 不实际抽取
+                    if (fluid == null || fluid.amount <= 0) continue;
+
+                    value.getSecond()[j] += Math.min(fluid.amount * stack.getCount(), remaining);
+                    updated = true;
+                }
+
+                break; // 处理完这种流体，继续下一个物品
+            }
+        }
+
+        return updated;
+    }
+
+    /**
+     * 检查玩家背包中的流体容器（原逻辑）
+     */
+    private boolean checkPlayerFluidInventories(ParticipantInfo pInfo, List<Tuple<UUID, int[]>> progress) {
+        boolean updated = false;
+
         List<InventoryPlayer> invoList;
         if (consume) {
-            // We do not support consuming resources from other member's inventories.
-            // This could otherwise be abused to siphon items/fluids unknowingly
+            // 消耗模式下不支持从其他成员的库存中消耗资源
             invoList = Collections.singletonList(pInfo.PLAYER.inventory);
         } else {
             invoList = new ArrayList<>();
@@ -121,12 +333,11 @@ public class TaskFluid implements ITaskInventory, IFluidTask, IItemTask {
 
                 if (stack.isEmpty()) continue;
 
-                // Make a copy of the stack to retrieve the fluid amount & info.
-                // Set count to 1, otherwise fluid handlers may not allow draining
-                var toRetrieveInfo = stack.copy();
-                toRetrieveInfo.setCount(1);
+                // 为检索流体信息创建一个副本
+                ItemStack singleStack = stack.copy();
+                singleStack.setCount(1);
 
-                var handler = FluidUtil.getFluidHandler(toRetrieveInfo);
+                IFluidHandlerItem handler = FluidUtil.getFluidHandler(singleStack);
                 if (handler == null) continue;
 
                 for (int j = 0; j < requiredFluids.size(); j++) {
@@ -136,12 +347,12 @@ public class TaskFluid implements ITaskInventory, IFluidTask, IItemTask {
                     boolean requiresFullDrain = false;
                     int fullDrainAmt = 0;
 
-                    // Initial Check
+                    // 初步检查
                     FluidStack rStackOg = rStack.copy();
                     rStackOg.amount = (int) Math.ceil((double) rStack.amount / (double) stack.getCount());
                     FluidStack sample = handler.drain(rStackOg, false);
                     if (sample == null || sample.amount <= 0) {
-                        // Check if we can drain the entire container instead (Simple Fluid Handler)
+                        // 检查是否可以完全排空容器
                         if (handler.getTankProperties().length < 1) continue;
 
                         fullDrainAmt = handler.getTankProperties()[0].getCapacity();
@@ -154,15 +365,23 @@ public class TaskFluid implements ITaskInventory, IFluidTask, IItemTask {
                         requiresFullDrain = true;
                     }
 
-                    // Theoretically this could work in consume mode for parties but the priority order and manual
-                    // submission code would need changing
+                    // 检查流体是否匹配
+                    FluidStack compareStack = rStack.copy();
+                    if (ignoreNbt) {
+                        compareStack.tag = null;
+                        sample = sample.copy();
+                        sample.tag = null;
+                    }
+                    if (!sample.isFluidEqual(compareStack)) continue;
+
+                    // 更新进度
                     for (Tuple<UUID, int[]> value : progress) {
                         if (value.getSecond()[j] >= rStack.amount) continue;
                         int remaining = rStack.amount - value.getSecond()[j];
 
                         FluidStack drain = rStack.copy();
 
-                        // Take the ceiling, so we are not removing less than required
+                        // 取上限，这样我们不会移除少于所需的数量
                         if (requiresFullDrain)
                             drain.amount = fullDrainAmt;
                         else
@@ -170,7 +389,7 @@ public class TaskFluid implements ITaskInventory, IFluidTask, IItemTask {
                         if (ignoreNbt) drain.tag = null;
                         if (drain.amount <= 0) continue;
 
-                        FluidStack fluid = handler.drain(drain, consume);
+                        FluidStack fluid = handler.drain(drain, consume); // 根据消耗模式决定是否实际抽取
                         if (fluid == null || fluid.amount <= 0) continue;
 
                         value.getSecond()[j] += Math.min(fluid.amount * stack.getCount(), remaining);
@@ -180,26 +399,26 @@ public class TaskFluid implements ITaskInventory, IFluidTask, IItemTask {
 
                     if (!hasDrained) continue;
 
+                    // 如果是消耗模式，更新容器内容
                     if (consume) {
-                        // Restore Stack Count
-                        var result = handler.getContainer();
+                        ItemStack result = handler.getContainer();
                         result.setCount(stack.getCount());
-
-                        // Set Contents
                         invo.setInventorySlotContents(i, result);
                     }
 
                     break;
                 }
             }
-
-            if (updated) setBulkProgress(progress);
-            checkAndComplete(pInfo, quest, updated);
         }
+
+        return updated;
     }
 
     private void checkAndComplete(ParticipantInfo pInfo, DBEntry<IQuest> quest, boolean resync) {
-        final List<Tuple<UUID, int[]>> progress = getBulkProgress(consume ? Collections.singletonList(pInfo.UUID) : pInfo.ALL_UUIDS);
+        checkAndComplete(pInfo, quest, resync, getBulkProgress(consume ? Collections.singletonList(pInfo.UUID) : pInfo.ALL_UUIDS));
+    }
+
+    private void checkAndComplete(ParticipantInfo pInfo, DBEntry<IQuest> quest, boolean resync, List<Tuple<UUID, int[]>> progress) {
         boolean updated = resync;
 
         topLoop:
